@@ -8,7 +8,7 @@ const shouldCleanupGeneration = (generation, now = new Date()) => Boolean(genera
 
 const runCleanup = async () => {
   const settings = await getSettingsMap();
-  if (!settings.auto_cleanup_enabled || !Generation) return { cleaned: 0 };
+  if (!settings.auto_cleanup_enabled || !Generation) return { cleaned: 0, skipped: 0 };
 
   const expired = await Generation.findAll({
     where: {
@@ -17,13 +17,33 @@ const runCleanup = async () => {
     },
   });
 
+  let cleaned = 0;
+  let skipped = 0;
+
   for (const generation of expired) {
-    await deleteAsset(generation.storageKey);
-    generation.isDeleted = true;
-    await generation.save();
+    try {
+      let result = { deleted: false };
+      if (!generation.storageKey) {
+        result = { deleted: true };
+      } else {
+        result = await deleteAsset(generation.storageKey);
+      }
+
+      if (!result.deleted) {
+        skipped += 1;
+        continue;
+      }
+
+      generation.isDeleted = true;
+      await generation.save();
+      cleaned += 1;
+    } catch (error) {
+      skipped += 1;
+      console.error('Cleanup item failed', { generationId: generation.id, error: error.message });
+    }
   }
 
-  return { cleaned: expired.length };
+  return { cleaned, skipped };
 };
 
 const startCleanupJob = () => cron.schedule('0 3 * * *', () => {

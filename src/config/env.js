@@ -14,7 +14,7 @@ const env = {
   frontendOrigin: process.env.FRONTEND_ORIGIN || 'http://localhost:8080',
   databaseUrl: process.env.DATABASE_URL || '',
   redisUrl: process.env.REDIS_URL || '',
-  jwtSecret: process.env.JWT_SECRET || 'development-only-secret-change-me',
+  jwtSecret: process.env.JWT_SECRET || '',
   wiroApiBaseUrl: process.env.WIRO_API_BASE_URL || 'https://api.wiro.ai/v1',
   wiroApiKey: process.env.WIRO_API_KEY || '',
   s3Endpoint: process.env.S3_ENDPOINT || '',
@@ -34,5 +34,13 @@ env.isProduction = env.nodeEnv === 'production';
 env.databaseEnabled = Boolean(env.databaseUrl);
 env.redisEnabled = Boolean(env.redisUrl);
 env.s3Enabled = Boolean(env.s3Endpoint && env.s3Bucket && env.s3AccessKeyId && env.s3SecretAccessKey);
+
+if (!env.jwtSecret) {
+  if (env.nodeEnv === 'development' || env.nodeEnv === 'test') {
+    env.jwtSecret = 'development-only-secret-change-me';
+  } else {
+    throw new Error('JWT_SECRET must be configured outside local development and test environments');
+  }
+}
 
 module.exports = env;

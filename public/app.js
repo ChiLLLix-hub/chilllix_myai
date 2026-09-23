@@ -7,6 +7,12 @@ const state = {
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => Array.from(document.querySelectorAll(selector));
+const createElement = (tag, className, text) => {
+  const element = document.createElement(tag);
+  if (className) element.className = className;
+  if (text !== undefined) element.textContent = text;
+  return element;
+};
 
 const setActiveSection = (sectionId) => {
   $$('.section-panel').forEach((section) => section.classList.add('hidden'));
@@ -23,17 +29,23 @@ const renderAssets = () => {
   const grid = $('#asset-grid');
   grid.innerHTML = '';
   state.assets.forEach((asset) => {
-    const card = document.createElement('article');
-    card.className = 'glass rounded-2xl p-3';
-    card.innerHTML = `
-      <img src="${asset.outputUrl}" alt="${asset.prompt}" class="mb-3 h-40 w-full rounded-xl object-cover" />
-      <p class="text-sm font-medium">${asset.type.toUpperCase()}</p>
-      <p class="mt-2 text-xs text-slate-400" title="${asset.prompt}">${asset.prompt.slice(0, 100)}</p>
-      <div class="mt-3 flex items-center justify-between text-xs text-slate-400">
-        <span>Expires ${new Date(asset.expiresAt).toLocaleDateString()}</span>
-        <a href="${asset.outputUrl}" download class="text-cyan-300">Download</a>
-      </div>
-    `;
+    const card = createElement('article', 'glass rounded-2xl p-3');
+    const image = createElement('img', 'mb-3 h-40 w-full rounded-xl object-cover');
+    image.src = asset.outputUrl;
+    image.alt = asset.prompt;
+
+    const type = createElement('p', 'text-sm font-medium', asset.type.toUpperCase());
+    const prompt = createElement('p', 'mt-2 text-xs text-slate-400', asset.prompt.slice(0, 100));
+    prompt.title = asset.prompt;
+
+    const footer = createElement('div', 'mt-3 flex items-center justify-between text-xs text-slate-400');
+    footer.appendChild(createElement('span', '', `Expires ${new Date(asset.expiresAt).toLocaleDateString()}`));
+    const download = createElement('a', 'text-cyan-300', 'Download');
+    download.href = asset.outputUrl;
+    download.download = '';
+    footer.appendChild(download);
+
+    card.append(image, type, prompt, footer);
     grid.appendChild(card);
   });
 };
@@ -42,18 +54,23 @@ const renderPrompts = (items = state.savedPrompts) => {
   const list = $('#saved-prompts-list');
   list.innerHTML = '';
   items.forEach((item) => {
-    const row = document.createElement('article');
-    row.className = 'glass rounded-2xl p-4';
-    row.innerHTML = `
-      <div class="flex items-start justify-between gap-4">
-        <div>
-          <p class="font-medium">${item.title}</p>
-          <p class="mt-1 text-sm text-slate-400">${item.promptText}</p>
-          <div class="mt-2 flex flex-wrap gap-2 text-xs text-cyan-300">${(item.tags || []).map((tag) => `<span>#${tag}</span>`).join('')}</div>
-        </div>
-        <button class="secondary-btn text-xs" data-use-prompt="${item.id}">Use Prompt</button>
-      </div>
-    `;
+    const row = createElement('article', 'glass rounded-2xl p-4');
+    const wrapper = createElement('div', 'flex items-start justify-between gap-4');
+    const content = createElement('div');
+    content.appendChild(createElement('p', 'font-medium', item.title));
+    content.appendChild(createElement('p', 'mt-1 text-sm text-slate-400', item.promptText));
+
+    const tags = createElement('div', 'mt-2 flex flex-wrap gap-2 text-xs text-cyan-300');
+    (item.tags || []).forEach((tag) => {
+      tags.appendChild(createElement('span', '', `#${tag}`));
+    });
+    content.appendChild(tags);
+
+    const useButton = createElement('button', 'secondary-btn text-xs', 'Use Prompt');
+    useButton.dataset.usePrompt = item.id;
+
+    wrapper.append(content, useButton);
+    row.appendChild(wrapper);
     list.appendChild(row);
   });
 };

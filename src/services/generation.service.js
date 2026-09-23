@@ -1,4 +1,4 @@
-const { Op, literal } = require('sequelize');
+const { Op, col, where, literal } = require('sequelize');
 const { sequelize } = require('../config/database');
 const { User, Generation } = require('../models');
 const { DEFAULT_SETTINGS, getSettingsMap } = require('./settings.service');
@@ -35,7 +35,14 @@ const queueGenerationRequest = async ({ userId, prompt, type, aspectRatio, style
   try {
     const [updatedCount] = await User.update(
       { creditsBalance: literal(`credits_balance - ${Number(costCredits)}`) },
-      { where: { id: userId, creditsBalance: { [Op.gte]: costCredits }, isSuspended: false }, transaction },
+      {
+        where: {
+          id: userId,
+          isSuspended: false,
+          [Op.and]: [where(col('credits_balance'), { [Op.gte]: costCredits })],
+        },
+        transaction,
+      },
     );
 
     if (!updatedCount) {
@@ -52,7 +59,12 @@ const queueGenerationRequest = async ({ userId, prompt, type, aspectRatio, style
     }, { transaction });
 
     await transaction.commit();
-    await enqueueGeneration({ generationId: generation.id, userId, prompt, type, aspectRatio, stylePreset, costCredits });
+    try {
+      await enqueueGeneration({ generationId: generation.id, userId, prompt, type, aspectRatio, stylePreset, costCredits });
+    } catch (error) {
+      await failGenerationAndRefund({ generationId: generation.id, userId, reason: 'Queue submission failed' });
+      throw error;
+    }
     emitGenerationUpdate(userId, { id: generation.id, status: 'queued', progress: 0 });
     return generation;
   } catch (error) {
@@ -67,39 +79,53 @@ const markGenerationProcessing = async ({ generationId, userId }) => {
   emitGenerationUpdate(userId, { id: generationId, status: 'processing', progress: 35 });
 };
 
-const completeGeneration = async ({ generationId, userId, outputUrl, storageKey }) => {
-  if (!Generation) return null;
-  const generation = await Generation.findByPk(generationId);
+const persistCompletedGeneration = async (
+  { generationModel = Generation, emitUpdate = emitGenerationUpdate },
+  { generationId, userId, outputUrl, storageKey },
+) => {
+  if (!generationModel) return null;
+  const generation = await generationModel.findByPk(generationId);
   if (!generation) return null;
   generation.status = 'completed';
   generation.outputUrl = outputUrl;
   generation.storageKey = storageKey;
   await generation.save();
-  emitGenerationUpdate(userId, { id: generationId, status: 'completed', progress: 100, outputUrl, storageKey });
+  emitUpdate(userId, { id: generationId, status: 'completed', progress: 100, outputUrl, storageKey });
   return generation;
 };
 
-const failGenerationAndRefund = async ({ generationId, userId, reason }) => {
-  if (!Generation || !User || !sequelize) return null;
-  const transaction = await sequelize.transaction();
+const refundFailedGeneration = async (
+  { generationModel = Generation, userModel = User, sequelizeInstance = sequelize, emitUpdate = emitGenerationUpdate },
+  { generationId, userId, reason },
+) => {
+  if (!generationModel || !userModel || !sequelizeInstance) return null;
+  const transaction = await sequelizeInstance.transaction();
   try {
-    const generation = await Generation.findByPk(generationId, { transaction });
+    const generation = await generationModel.findByPk(generationId, { transaction, lock: transaction.LOCK.UPDATE });
     if (!generation) {
       await transaction.rollback();
       return null;
     }
 
+    if (generation.status === 'failed') {
+      await transaction.rollback();
+      return generation;
+    }
+
     generation.status = 'failed';
     await generation.save({ transaction });
-    await User.update({ creditsBalance: literal(`credits_balance + ${Number(generation.costCredits)}`) }, { where: { id: userId }, transaction });
+    await userModel.update({ creditsBalance: literal(`credits_balance + ${Number(generation.costCredits)}`) }, { where: { id: userId }, transaction });
     await transaction.commit();
-    emitGenerationUpdate(userId, { id: generationId, status: 'failed', progress: 100, reason });
+    emitUpdate(userId, { id: generationId, status: 'failed', progress: 100, reason });
     return generation;
   } catch (error) {
     await transaction.rollback();
     throw error;
   }
 };
+
+const completeGeneration = (payload) => persistCompletedGeneration({}, payload);
+const failGenerationAndRefund = (payload) => refundFailedGeneration({}, payload);
 
 module.exports = {
   resolveGenerationCosts,
@@ -108,4 +134,6 @@ module.exports = {
   markGenerationProcessing,
   completeGeneration,
   failGenerationAndRefund,
+  persistCompletedGeneration,
+  refundFailedGeneration,
 };
