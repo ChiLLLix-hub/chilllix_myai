@@ -113,3 +113,35 @@ test('refundFailedGeneration returns null when generation is missing', async () 
   assert.equal(result, null);
   assert.equal(transaction.rolledBack, true);
 });
+
+test('refundFailedGeneration does not refund again for already failed generations', async () => {
+  const generation = {
+    status: 'failed',
+    costCredits: 12,
+    async save() {
+      assert.fail('should not save already failed generation');
+    },
+  };
+  const transaction = {
+    LOCK: { UPDATE: 'UPDATE' },
+    async commit() {
+      assert.fail('should not commit');
+    },
+    async rollback() {
+      this.rolledBack = true;
+    },
+  };
+
+  const result = await refundFailedGeneration(
+    {
+      generationModel: { findByPk: async () => generation },
+      userModel: { update: async () => assert.fail('should not refund') },
+      sequelizeInstance: { transaction: async () => transaction },
+      emitUpdate: () => assert.fail('should not emit'),
+    },
+    { generationId: 'failed', userId: 'user-4', reason: 'duplicate' },
+  );
+
+  assert.equal(result, generation);
+  assert.equal(transaction.rolledBack, true);
+});

@@ -46,10 +46,8 @@ const generationRateLimiter = [
   createKnownLimiter({ windowMs: 60 * 1000, max: 20 }),
   createRedisBackedRateLimiter({ prefix: 'generation', windowMs: 60 * 1000, max: 20 }),
 ];
-const generalApiRateLimiter = [
-  createKnownLimiter({ windowMs: 60 * 1000, max: 120 }),
-  createRedisBackedRateLimiter({ prefix: 'api', windowMs: 60 * 1000, max: 120 }),
-];
+const generalKnownApiRateLimiter = createKnownLimiter({ windowMs: 60 * 1000, max: 120 });
+const generalApiRedisRateLimiter = createRedisBackedRateLimiter({ prefix: 'api', windowMs: 60 * 1000, max: 120 });
 const pageRateLimiter = createKnownLimiter({ windowMs: 60 * 1000, max: 240 });
 
-module.exports = { authRateLimiter, generationRateLimiter, generalApiRateLimiter, pageRateLimiter };
+module.exports = { authRateLimiter, generationRateLimiter, generalKnownApiRateLimiter, generalApiRedisRateLimiter, pageRateLimiter };

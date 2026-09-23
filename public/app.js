@@ -30,9 +30,15 @@ const renderAssets = () => {
   grid.innerHTML = '';
   state.assets.forEach((asset) => {
     const card = createElement('article', 'glass rounded-2xl p-3');
-    const image = createElement('img', 'mb-3 h-40 w-full rounded-xl object-cover');
-    image.src = asset.outputUrl;
-    image.alt = asset.prompt;
+    if (asset.outputUrl) {
+      const image = createElement('img', 'mb-3 h-40 w-full rounded-xl object-cover');
+      image.src = asset.outputUrl;
+      image.alt = asset.prompt;
+      card.appendChild(image);
+    } else {
+      const chatPreview = createElement('div', 'mb-3 flex h-40 w-full items-center justify-center rounded-xl border border-dashed border-white/10 bg-slate-900/60 px-4 text-center text-sm text-slate-300', 'Chat output preview available in transcript/export');
+      card.appendChild(chatPreview);
+    }
 
     const type = createElement('p', 'text-sm font-medium', asset.type.toUpperCase());
     const prompt = createElement('p', 'mt-2 text-xs text-slate-400', asset.prompt.slice(0, 100));
@@ -45,7 +51,7 @@ const renderAssets = () => {
     download.download = '';
     footer.appendChild(download);
 
-    card.append(image, type, prompt, footer);
+    card.append(type, prompt, footer);
     grid.appendChild(card);
   });
 };

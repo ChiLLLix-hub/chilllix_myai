@@ -115,6 +115,11 @@ const refundFailedGeneration = async (
       return generation;
     }
 
+    if (!['queued', 'processing'].includes(generation.status)) {
+      await transaction.rollback();
+      return generation;
+    }
+
     generation.status = 'failed';
     await generation.save({ transaction });
     await userModel.update({ creditsBalance: literal(`credits_balance + ${Number(generation.costCredits)}`) }, { where: { id: userId }, transaction });

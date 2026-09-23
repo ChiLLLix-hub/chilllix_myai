@@ -21,7 +21,9 @@ const updateProfile = async (req, res) => {
   const user = await User.findByPk(req.user.sub);
   if (!user) throw new HttpError(404, 'User not found');
   const { avatarUrl } = req.validated.body;
-  user.avatarUrl = avatarUrl || user.avatarUrl;
+  if (Object.prototype.hasOwnProperty.call(req.validated.body, 'avatarUrl')) {
+    user.avatarUrl = avatarUrl || null;
+  }
   await user.save();
   res.json({ success: true, avatarUrl: user.avatarUrl });
 };

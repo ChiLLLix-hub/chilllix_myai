@@ -9,7 +9,7 @@ const promptRoutes = require('./routes/prompt.routes');
 const generationRoutes = require('./routes/generation.routes');
 const transactionRoutes = require('./routes/transaction.routes');
 const adminRoutes = require('./routes/admin.routes');
-const { generalApiRateLimiter, pageRateLimiter } = require('./middleware/rate-limit.middleware');
+const { generalKnownApiRateLimiter, generalApiRedisRateLimiter, pageRateLimiter } = require('./middleware/rate-limit.middleware');
 const { auditLogger } = require('./middleware/audit.middleware');
 const { errorHandler, notFoundHandler } = require('./middleware/error.middleware');
 
@@ -24,7 +24,8 @@ app.get('/health', pageRateLimiter, (_req, res) => {
   res.json({ status: 'ok', redisEnabled: env.redisEnabled, databaseEnabled: env.databaseEnabled, s3Enabled: env.s3Enabled });
 });
 
-app.use('/api', generalApiRateLimiter);
+app.use('/api', generalKnownApiRateLimiter);
+app.use('/api', generalApiRedisRateLimiter);
 app.use('/api/auth', authRoutes);
 app.use('/api/profile', profileRoutes);
 app.use('/api/prompts', promptRoutes);
