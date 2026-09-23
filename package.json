@@ -1,0 +1,41 @@
+{
+  "name": "chilllix-myai",
+  "version": "1.0.0",
+  "description": "Secure AI platform powered by Wiro.ai",
+  "main": "src/server.js",
+  "scripts": {
+    "test": "node --test",
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "db:verify": "node src/scripts/verify-config.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ChiLLLix-hub/chilllix_myai.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "GPL-3.0-only",
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1138.0",
+    "bcryptjs": "^3.0.3",
+    "bullmq": "^6.3.8",
+    "cors": "^2.8.6",
+    "express": "^5.2.1",
+    "helmet": "^8.3.0",
+    "ioredis": "^6.0.0",
+    "jsonwebtoken": "^9.0.3",
+    "node-cron": "^4.6.0",
+    "pg": "^8.23.0",
+    "sanitize-html": "^2.17.7",
+    "sequelize": "^6.37.8",
+    "socket.io": "^4.8.3",
+    "zod": "^4.6.5"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "overrides": {
+    "uuid": "11.1.1"
+  }
+}
