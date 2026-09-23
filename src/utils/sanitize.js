@@ -19,4 +19,6 @@ const cleanJson = (value) => {
   return cleanString(value);
 };
 
-module.exports = { cleanString, cleanStringArray, cleanJson };
+const escapeLikePattern = (value) => cleanString(value).replace(/[\\%_]/g, (match) => `\\${match}`);
+
+module.exports = { cleanString, cleanStringArray, cleanJson, escapeLikePattern };

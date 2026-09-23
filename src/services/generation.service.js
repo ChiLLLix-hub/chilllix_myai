@@ -32,6 +32,7 @@ const queueGenerationRequest = async ({ userId, prompt, type, aspectRatio, style
   }
 
   const transaction = await sequelize.transaction();
+  let committed = false;
   try {
     const [updatedCount] = await User.update(
       { creditsBalance: literal(`credits_balance - ${Number(costCredits)}`) },
@@ -57,8 +58,8 @@ const queueGenerationRequest = async ({ userId, prompt, type, aspectRatio, style
       costCredits,
       expiresAt: calculateExpiryDate(settings.asset_retention_days),
     }, { transaction });
-
     await transaction.commit();
+    committed = true;
     try {
       await enqueueGeneration({ generationId: generation.id, userId, prompt, type, aspectRatio, stylePreset, costCredits });
     } catch (error) {
@@ -68,7 +69,9 @@ const queueGenerationRequest = async ({ userId, prompt, type, aspectRatio, style
     emitGenerationUpdate(userId, { id: generation.id, status: 'queued', progress: 0 });
     return generation;
   } catch (error) {
-    await transaction.rollback();
+    if (!committed) {
+      await transaction.rollback();
+    }
     throw error;
   }
 };

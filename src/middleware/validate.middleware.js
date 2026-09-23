@@ -6,6 +6,9 @@ const validate = (schema) => (req, _res, next) => {
     return next(new HttpError(400, 'Validation failed', result.error.flatten()));
   }
   req.validated = result.data;
+  req.body = result.data.body;
+  req.query = result.data.query;
+  req.params = result.data.params;
   return next();
 };
 

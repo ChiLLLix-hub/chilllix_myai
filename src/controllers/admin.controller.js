@@ -2,6 +2,7 @@ const { fn, col } = require('sequelize');
 const { User, Generation, Transaction, UserLog } = require('../models');
 const { getSettingsMap, upsertSettings } = require('../services/settings.service');
 const { HttpError } = require('../utils/http-error');
+const { escapeLikePattern } = require('../utils/sanitize');
 
 const requireDatabase = () => {
   if (!User || !Generation || !Transaction || !UserLog) {
@@ -34,14 +35,15 @@ const updateSettings = async (req, res) => {
 const listUsers = async (req, res) => {
   requireDatabase();
   const search = req.query.search?.trim();
-  const where = search ? { email: { [require('sequelize').Op.iLike]: `%${search}%` } } : {};
+  const escapedSearch = search ? escapeLikePattern(search) : '';
+  const where = escapedSearch ? { email: { [require('sequelize').Op.iLike]: `%${escapedSearch}%` } } : {};
   const users = await User.findAll({ where, order: [['createdAt', 'DESC']], limit: 100 });
   res.json(users);
 };
 
 const updateUser = async (req, res) => {
   requireDatabase();
-  const user = await User.findByPk(req.params.id);
+  const user = await User.findByPk(req.validated.params.id);
   if (!user) throw new HttpError(404, 'User not found');
   const { creditsBalance, role, isSuspended } = req.validated.body;
   if (typeof creditsBalance === 'number') user.creditsBalance = creditsBalance;

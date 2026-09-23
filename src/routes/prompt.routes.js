@@ -10,7 +10,11 @@ const { asyncHandler } = require('../utils/async-handler');
 const router = express.Router();
 
 router.use(requireAuth);
-router.get('/', auditAction('prompt.list'), asyncHandler(listPrompts));
+router.get('/', validate(z.object({
+  body: z.object({}).passthrough(),
+  query: z.object({ search: z.string().max(120).optional().transform((value) => value ? cleanString(value) : value) }).passthrough(),
+  params: z.object({}).passthrough(),
+})), auditAction('prompt.list'), asyncHandler(listPrompts));
 router.post('/', auditAction('prompt.create'), validate(z.object({
   body: z.object({
     title: z.string().min(2).max(120).transform(cleanString),

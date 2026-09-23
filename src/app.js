@@ -20,7 +20,7 @@ app.use(cors({ origin: env.frontendOrigin, credentials: false, methods: ['GET', 
 app.use(express.json({ limit: '1mb' }));
 app.use(auditLogger);
 
-app.get('/health', (_req, res) => {
+app.get('/health', pageRateLimiter, (_req, res) => {
   res.json({ status: 'ok', redisEnabled: env.redisEnabled, databaseEnabled: env.databaseEnabled, s3Enabled: env.s3Enabled });
 });
 

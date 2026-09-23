@@ -23,7 +23,11 @@ router.put('/settings', auditAction('admin.settings.update'), validate(z.object(
   query: z.object({}).passthrough(),
   params: z.object({}).passthrough(),
 })), asyncHandler(updateSettings));
-router.get('/users', auditAction('admin.users.list'), asyncHandler(listUsers));
+router.get('/users', validate(z.object({
+  body: z.object({}).passthrough(),
+  query: z.object({ search: z.string().max(120).optional() }).passthrough(),
+  params: z.object({}).passthrough(),
+})), auditAction('admin.users.list'), asyncHandler(listUsers));
 router.patch('/users/:id', auditAction('admin.users.update'), validate(z.object({
   body: z.object({
     creditsBalance: z.number().int().min(0).optional(),
