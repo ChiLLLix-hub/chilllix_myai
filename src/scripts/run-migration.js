@@ -21,6 +21,9 @@ const buildSslConfig = (connectionString, nodeEnv = process.env.NODE_ENV || 'dev
       return false;
     }
   } catch (error) {
+    if (error.message.startsWith('Unsupported sslmode')) {
+      throw error;
+    }
     return nodeEnv === 'production' ? { rejectUnauthorized: false } : false;
   }
 
