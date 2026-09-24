@@ -9,16 +9,25 @@ const { cleanString } = require('../utils/sanitize');
 const { asyncHandler } = require('../utils/async-handler');
 
 const router = express.Router();
+const generationBodySchema = z.object({
+  prompt: z.string().min(5).max(4000).transform(cleanString),
+  type: z.enum(['image', 'video', 'chat']),
+  model: z.string().min(3).max(120).optional().transform((value) => value ? cleanString(value) : undefined),
+  aspectRatio: z.string().min(2).max(20).default('auto').transform(cleanString),
+}).superRefine((value, ctx) => {
+  if (value.type === 'image' && !value.model) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['model'],
+      message: 'Image requests must include a model',
+    });
+  }
+});
 
 router.use(requireAuth);
 router.get('/', auditAction('generation.list'), asyncHandler(listGenerations));
 router.post('/', generationRateLimiter, auditAction('generation.create'), validate(z.object({
-  body: z.object({
-    prompt: z.string().min(5).max(4000).transform(cleanString),
-    type: z.enum(['image', 'video', 'chat']),
-    model: z.string().min(3).max(120).optional().transform((value) => value ? cleanString(value) : undefined),
-    aspectRatio: z.string().min(2).max(20).default('auto').transform(cleanString),
-  }),
+  body: generationBodySchema,
   query: z.object({}).passthrough(),
   params: z.object({}).passthrough(),
 })), asyncHandler(createGeneration));

@@ -307,11 +307,11 @@ const setTopAction = (action) => {
 };
 
 const openCreatorForCategory = (category, promptText = '') => {
-  setTopAction(category);
   if (!IMPLEMENTED_CREATOR_TYPES.has(category)) {
     alert(`${category.charAt(0).toUpperCase() + category.slice(1)} creator is not available yet.`);
     return;
   }
+  setTopAction(category);
 
   const catalog = MODEL_CATALOG[category];
   const selected = catalog?.models.find((model) => model.available);
