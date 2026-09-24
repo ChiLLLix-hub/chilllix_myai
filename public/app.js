@@ -98,6 +98,7 @@ const STORAGE_KEYS = Object.freeze({ token: 'chilllix.token' });
 const DEFAULT_CREDIT_COSTS = Object.freeze({ image: 10, video: 35, chat: 3 });
 
 let socketInstance = null;
+let adminSearchDebounce = null;
 
 const state = {
   token: '',
@@ -579,17 +580,20 @@ const loadGenerations = async () => {
 
 const loadAdminView = async () => {
   if (state.user?.role !== 'admin') return;
-  const search = $('#admin-user-search').value.trim();
-  const query = search ? `?search=${encodeURIComponent(search)}` : '';
-  const [overview, users] = await Promise.all([
-    api('/api/admin/overview'),
-    api(`/api/admin/users${query}`),
-  ]);
+  const overview = await api('/api/admin/overview');
   $('#admin-users').textContent = String(overview.activeUsers || 0);
   $('#admin-generations').textContent = String(overview.totalGenerations || 0);
   $('#admin-revenue').textContent = `$${Number(overview.revenue || 0).toFixed(2)}`;
-  $('#admin-logs-count').textContent = String((overview.logs || []).length);
-  state.adminUsers = users;
+  const logsCount = Array.isArray(overview.logs) ? overview.logs.length : Number(overview.logs || 0);
+  $('#admin-logs-count').textContent = String(logsCount);
+  await loadAdminUsers();
+};
+
+const loadAdminUsers = async () => {
+  if (state.user?.role !== 'admin') return;
+  const search = $('#admin-user-search').value.trim();
+  const query = search ? `?search=${encodeURIComponent(search)}` : '';
+  state.adminUsers = await api(`/api/admin/users${query}`);
   renderAdminUsers();
 };
 
@@ -760,11 +764,14 @@ $('#admin-refresh-btn').addEventListener('click', async () => {
 
 $('#admin-user-search').addEventListener('input', async () => {
   if (state.user?.role !== 'admin') return;
-  try {
-    await loadAdminView();
-  } catch (error) {
-    showAdminFeedback(error.message, 'error');
-  }
+  clearTimeout(adminSearchDebounce);
+  adminSearchDebounce = setTimeout(async () => {
+    try {
+      await loadAdminUsers();
+    } catch (error) {
+      showAdminFeedback(error.message, 'error');
+    }
+  }, 250);
 });
 
 $('#admin-user-list').addEventListener('submit', async (event) => {

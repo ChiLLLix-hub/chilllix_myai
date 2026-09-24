@@ -21,7 +21,10 @@ const generationBodySchema = z.object({
     }
     return cleaned;
   }),
-  aspectRatio: z.string().min(2).max(20).default('auto').transform(cleanString),
+  aspectRatio: z.string().max(20).default('auto').transform(cleanString).refine(
+    (value) => value === 'auto' || /^\d{1,2}:\d{1,2}$/.test(value),
+    'Aspect ratio must be auto or in N:N format',
+  ),
 });
 
 router.use(requireAuth);
