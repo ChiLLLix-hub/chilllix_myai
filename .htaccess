@@ -1,0 +1,19 @@
+RewriteEngine On
+
+# Serve /myai and /myai/ from /myai/public/index.html
+RewriteCond %{REQUEST_URI} ^/myai/?$
+RewriteRule ^(?:|myai/?)$ /myai/public/index.html [L]
+
+# Keep direct access to existing files/directories
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+# Ensure ./styles.css and ./app.js work from nested SPA URLs
+RewriteCond %{REQUEST_URI} ^/myai/
+RewriteRule ^(?:myai/)?(?:.*/)?(styles\.css|app\.js)$ /myai/public/$1 [L]
+
+# Fallback all other routes to the SPA entrypoint
+RewriteCond %{REQUEST_URI} ^/myai(?:/.*)?$
+RewriteCond %{REQUEST_URI} !^/myai/public/
+RewriteRule ^.*$ /myai/public/index.html [L]
