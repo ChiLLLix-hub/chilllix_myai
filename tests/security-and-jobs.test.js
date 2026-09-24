@@ -4,7 +4,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { cleanString, cleanStringArray, cleanJson } = require('../src/utils/sanitize');
 const { resolveGenerationCosts, calculateExpiryDate, resolveRequestedModel, persistCompletedGeneration, refundFailedGeneration } = require('../src/services/generation.service');
-const { buildImageFields, ensureSupportedSize, extractOutputUrl, pollTaskDetail, submitAsyncRun } = require('../src/services/wiro.service');
+const { buildImageFields, ensureSupportedSize, extractOutputUrl, pollTaskDetail, submitAsyncRun, submitImageGeneration } = require('../src/services/wiro.service');
 const { shouldCleanupGeneration } = require('../src/jobs/cleanup.job');
 const { buildSslConfig, runMigration } = require('../src/scripts/run-migration');
 
@@ -31,6 +31,7 @@ test('calculateExpiryDate defaults into the future', () => {
 
 test('resolveRequestedModel only allows configured image models', () => {
   assert.equal(resolveRequestedModel({ type: 'image', model: 'openai/gpt-image-2' }), 'openai/gpt-image-2');
+  assert.equal(resolveRequestedModel({ type: 'image', model: undefined }), 'openai/gpt-image-2-5-flare');
   assert.equal(resolveRequestedModel({ type: 'video', model: undefined }), null);
   assert.throws(() => resolveRequestedModel({ type: 'image', model: 'bad/model' }), /Unsupported image model/);
 });
@@ -109,6 +110,39 @@ test('submitAsyncRun surfaces Wiro error payloads and missing task ids', async (
     }),
     /did not return a task id/,
   );
+});
+
+
+test('submitImageGeneration resolves a configured image model end to end', async () => {
+  const calls = [];
+  const responses = [
+    { errors: [], taskid: 'task-42', result: true },
+    { tasklist: [{ status: 'task_postprocess_end', outputs: [{ url: 'https://cdn.example.com/image.png' }] }], errors: [], result: true },
+  ];
+  const fetchImpl = async (url, options) => {
+    calls.push({ url, options });
+    return {
+      ok: true,
+      async text() {
+        return JSON.stringify(responses.shift());
+      },
+    };
+  };
+
+  const result = await submitImageGeneration({
+    model: 'openai/gpt-image-2',
+    prompt: 'cat portrait',
+    aspectRatio: '1:1',
+  }, {
+    fetchImpl,
+    pollIntervalMs: 0,
+    maxAttempts: 2,
+  });
+
+  assert.equal(result.outputUrl, 'https://cdn.example.com/image.png');
+  assert.equal(result.taskId, 'task-42');
+  assert.equal(calls[0].url.endsWith('/Run/openai/gpt-image-2'), true);
+  assert.equal(calls[1].url.endsWith('/Task/Detail'), true);
 });
 
 test('pollTaskDetail keeps polling until the task completes', async () => {

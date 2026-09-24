@@ -14,14 +14,6 @@ const generationBodySchema = z.object({
   type: z.enum(['image', 'video', 'chat']),
   model: z.string().min(3).max(120).optional().transform((value) => value ? cleanString(value) : undefined),
   aspectRatio: z.string().min(2).max(20).default('auto').transform(cleanString),
-}).superRefine((value, ctx) => {
-  if (value.type === 'image' && !value.model) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ['model'],
-      message: 'Image requests must include a model',
-    });
-  }
 });
 
 router.use(requireAuth);

@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const { User } = require('../models');
 const env = require('../config/env');
@@ -29,4 +30,16 @@ const loginUser = async ({ email, password }) => {
   return { user, token: signAccessToken(user) };
 };
 
-module.exports = { registerUser, loginUser };
+const createGuestUser = async () => {
+  if (!User) {
+    throw new HttpError(503, 'Database is not configured');
+  }
+
+  const guestId = crypto.randomUUID();
+  const email = `guest-${guestId}@demo.chilllix.local`;
+  const passwordHash = await bcrypt.hash(crypto.randomUUID(), 12);
+  const user = await User.create({ email, passwordHash, creditsBalance: env.starterCredits, role: 'user' });
+  return { user, token: signAccessToken(user) };
+};
+
+module.exports = { registerUser, loginUser, createGuestUser };

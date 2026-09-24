@@ -4,7 +4,7 @@ const { User, Generation } = require('../models');
 const { DEFAULT_SETTINGS, getSettingsMap } = require('./settings.service');
 const { enqueueGeneration } = require('./queue.service');
 const { emitGenerationUpdate } = require('./socket.service');
-const { lookupSupportedGenerationModel } = require('./model-catalog.service');
+const { getDefaultGenerationModel, lookupSupportedGenerationModel } = require('./model-catalog.service');
 const { HttpError } = require('../utils/http-error');
 
 const resolveGenerationCosts = (settings) => ({
@@ -21,7 +21,9 @@ const calculateExpiryDate = (retentionDays) => {
 
 const resolveRequestedModel = ({ type, model }) => {
   if (type !== 'image') return null;
-  const config = lookupSupportedGenerationModel(type, model);
+  const config = model
+    ? lookupSupportedGenerationModel(type, model)
+    : getDefaultGenerationModel(type);
   if (!config) {
     throw new HttpError(400, 'Unsupported image model');
   }

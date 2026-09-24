@@ -1,6 +1,6 @@
 const express = require('express');
 const { z } = require('zod');
-const { register, login } = require('../controllers/auth.controller');
+const { register, login, guest } = require('../controllers/auth.controller');
 const { validate } = require('../middleware/validate.middleware');
 const { authRateLimiter } = require('../middleware/rate-limit.middleware');
 const { auditAction } = require('../middleware/audit.middleware');
@@ -20,5 +20,6 @@ const authSchema = z.object({
 
 router.post('/register', authRateLimiter, auditAction('auth.register'), validate(authSchema), asyncHandler(register));
 router.post('/login', authRateLimiter, auditAction('auth.login'), validate(authSchema), asyncHandler(login));
+router.post('/guest', authRateLimiter, auditAction('auth.guest'), asyncHandler(guest));
 
 module.exports = router;

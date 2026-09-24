@@ -1,4 +1,4 @@
-const { registerUser, loginUser } = require('../services/auth.service');
+const { registerUser, loginUser, createGuestUser } = require('../services/auth.service');
 
 const serializeUser = (user) => ({
   id: user.id,
@@ -22,4 +22,9 @@ const login = async (req, res) => {
   res.json({ token: result.token, user: serializeUser(result.user) });
 };
 
-module.exports = { register, login, serializeUser };
+const guest = async (_req, res) => {
+  const result = await createGuestUser();
+  res.status(201).json({ token: result.token, user: serializeUser(result.user) });
+};
+
+module.exports = { register, login, guest, serializeUser };

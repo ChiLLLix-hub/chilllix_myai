@@ -108,8 +108,6 @@ const IMPLEMENTED_CREATOR_TYPES = new Set(['image']);
 const STORAGE_KEYS = Object.freeze({
   token: 'chilllix.token',
   creditsBalance: 'chilllix.creditsBalance',
-  guestId: 'chilllix.guest.id',
-  guestEmail: 'chilllix.guest.email',
 });
 
 const $ = (selector) => document.querySelector(selector);
@@ -128,35 +126,6 @@ const focusFirstCatalogAction = () => {
 
 const syncCreditsBalance = () => {
   $('#credits-balance').textContent = String(state.creditsBalance || 0);
-};
-
-const buildGuestCredentials = (guestId) => ({
-  email: `guest-${guestId}@demo.chilllix.local`,
-  password: `${guestId}-Chilllix!2026`,
-});
-
-const createGuestCredentials = () => {
-  const guestId = (globalThis.crypto?.randomUUID?.() || `guest-${Date.now()}`).replace(/[^a-zA-Z0-9-]/g, '').toLowerCase();
-  localStorage.setItem(STORAGE_KEYS.guestId, guestId);
-  const credentials = buildGuestCredentials(guestId);
-  localStorage.setItem(STORAGE_KEYS.guestEmail, credentials.email);
-  return credentials;
-};
-
-const getGuestCredentials = () => {
-  const guestId = localStorage.getItem(STORAGE_KEYS.guestId);
-  if (guestId) return buildGuestCredentials(guestId);
-
-  const legacyEmail = localStorage.getItem(STORAGE_KEYS.guestEmail);
-  if (legacyEmail) {
-    const matchedGuestId = legacyEmail.match(/^guest-(.+)@demo\.chilllix\.local$/i)?.[1];
-    if (matchedGuestId) {
-      localStorage.setItem(STORAGE_KEYS.guestId, matchedGuestId);
-      return buildGuestCredentials(matchedGuestId);
-    }
-  }
-
-  return createGuestCredentials();
 };
 
 const applySession = (payload) => {
@@ -188,25 +157,10 @@ const bootstrapSession = async () => {
     }
   }
 
-  const credentials = getGuestCredentials();
-  try {
-    const loginPayload = await api('/api/auth/login', {
-      method: 'POST',
-      body: JSON.stringify(credentials),
-    });
-    applySession(loginPayload);
-    return;
-  } catch (error) {
-    if (!/Invalid credentials/i.test(error.message)) {
-      throw error;
-    }
-  }
-
-  const registerPayload = await api('/api/auth/register', {
+  const guestPayload = await api('/api/auth/guest', {
     method: 'POST',
-    body: JSON.stringify(credentials),
   });
-  applySession(registerPayload);
+  applySession(guestPayload);
 };
 
 const showSection = (sectionId) => {
