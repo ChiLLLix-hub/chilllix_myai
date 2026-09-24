@@ -12,7 +12,15 @@ const router = express.Router();
 const generationBodySchema = z.object({
   prompt: z.string().min(5).max(4000).transform(cleanString),
   type: z.enum(['image', 'video', 'chat']),
-  model: z.string().min(3).max(120).optional().transform((value) => value ? cleanString(value) : undefined),
+  model: z.string().max(120).optional().transform((value, ctx) => {
+    if (value === undefined) return undefined;
+    const cleaned = cleanString(value);
+    if (cleaned.length < 3) {
+      ctx.addIssue({ code: 'custom', message: 'Model must be at least 3 characters long' });
+      return z.NEVER;
+    }
+    return cleaned;
+  }),
   aspectRatio: z.string().min(2).max(20).default('auto').transform(cleanString),
 });
 

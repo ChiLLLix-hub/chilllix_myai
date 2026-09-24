@@ -147,7 +147,7 @@ const pollTaskDetail = async ({ taskId, fetchImpl = fetch, pollIntervalMs = 2500
 };
 
 const submitImageGeneration = async ({ model, prompt, aspectRatio }, options = {}) => {
-  const selectedModel = model || getDefaultGenerationModel('image')?.id;
+  const selectedModel = model === undefined ? getDefaultGenerationModel('image')?.id : model;
   const modelConfig = getGenerationModelConfig('image', selectedModel);
   if (!modelConfig || !selectedModel) {
     throw new Error('Unsupported image model');
