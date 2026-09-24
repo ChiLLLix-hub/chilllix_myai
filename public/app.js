@@ -56,6 +56,7 @@ const apiBaseWindow = typeof window.CHILLLIX_API_BASE_URL === 'string' ? window.
 const normalizedApiBase = (apiBaseWindow || apiBaseMeta).trim().replace(/\/+$/, '');
 const apiOrigin = normalizedApiBase.replace(/\/api$/, '');
 const resolveApiUrl = (path) => {
+  if (/^https?:\/\//i.test(path)) return path;
   if (!apiOrigin) return path;
   return `${apiOrigin}${path.startsWith('/') ? path : `/${path}`}`;
 };

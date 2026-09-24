@@ -113,7 +113,7 @@ npm start
 
 1. Copy `/public/.htaccess.example` to `/public/.htaccess`.
 2. Replace `YOUR_RAILWAY_APP` with your Railway app hostname.
-3. Ensure your cPanel host allows `mod_proxy` in `.htaccess`.
+3. Ensure your cPanel host enables `mod_proxy`, `mod_proxy_http`, and `mod_proxy_wstunnel`, and allows proxy rewrite directives in `.htaccess`.
 
 ### Option B (fallback): use API subdomain directly
 

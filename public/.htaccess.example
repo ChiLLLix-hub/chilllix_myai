@@ -1,5 +1,11 @@
+<IfModule mod_rewrite.c>
 RewriteEngine On
 
+# Prerequisites: mod_proxy, mod_proxy_http, mod_proxy_wstunnel; AllowOverride must permit rewrite/proxy directives.
 # Set your Railway backend hostname below.
+RewriteCond %{REQUEST_URI} ^/api/ [NC]
 RewriteRule ^api/(.*)$ https://YOUR_RAILWAY_APP.up.railway.app/api/$1 [P,L,QSA,NE]
+
+RewriteCond %{REQUEST_URI} ^/socket\.io/ [NC]
 RewriteRule ^socket\.io/(.*)$ https://YOUR_RAILWAY_APP.up.railway.app/socket.io/$1 [P,L,QSA,NE]
+</IfModule>
