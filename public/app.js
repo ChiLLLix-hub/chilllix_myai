@@ -108,8 +108,8 @@ const IMPLEMENTED_CREATOR_TYPES = new Set(['image']);
 const STORAGE_KEYS = Object.freeze({
   token: 'chilllix.token',
   creditsBalance: 'chilllix.creditsBalance',
+  guestId: 'chilllix.guest.id',
   guestEmail: 'chilllix.guest.email',
-  guestPassword: 'chilllix.guest.password',
 });
 
 const $ = (selector) => document.querySelector(selector);
@@ -130,19 +130,32 @@ const syncCreditsBalance = () => {
   $('#credits-balance').textContent = String(state.creditsBalance || 0);
 };
 
+const buildGuestCredentials = (guestId) => ({
+  email: `guest-${guestId}@demo.chilllix.local`,
+  password: `${guestId}-Chilllix!2026`,
+});
+
 const createGuestCredentials = () => {
-  const random = (globalThis.crypto?.randomUUID?.() || `guest-${Date.now()}`).replace(/[^a-zA-Z0-9-]/g, '').toLowerCase();
-  const email = `guest-${random}@demo.chilllix.local`;
-  const password = `${random}-Chilllix!2026`;
-  localStorage.setItem(STORAGE_KEYS.guestEmail, email);
-  localStorage.setItem(STORAGE_KEYS.guestPassword, password);
-  return { email, password };
+  const guestId = (globalThis.crypto?.randomUUID?.() || `guest-${Date.now()}`).replace(/[^a-zA-Z0-9-]/g, '').toLowerCase();
+  localStorage.setItem(STORAGE_KEYS.guestId, guestId);
+  const credentials = buildGuestCredentials(guestId);
+  localStorage.setItem(STORAGE_KEYS.guestEmail, credentials.email);
+  return credentials;
 };
 
 const getGuestCredentials = () => {
-  const email = localStorage.getItem(STORAGE_KEYS.guestEmail);
-  const password = localStorage.getItem(STORAGE_KEYS.guestPassword);
-  if (email && password) return { email, password };
+  const guestId = localStorage.getItem(STORAGE_KEYS.guestId);
+  if (guestId) return buildGuestCredentials(guestId);
+
+  const legacyEmail = localStorage.getItem(STORAGE_KEYS.guestEmail);
+  if (legacyEmail) {
+    const matchedGuestId = legacyEmail.match(/^guest-(.+)@demo\.chilllix\.local$/i)?.[1];
+    if (matchedGuestId) {
+      localStorage.setItem(STORAGE_KEYS.guestId, matchedGuestId);
+      return buildGuestCredentials(matchedGuestId);
+    }
+  }
+
   return createGuestCredentials();
 };
 
@@ -170,6 +183,7 @@ const bootstrapSession = async () => {
       syncCreditsBalance();
       return;
     } catch (_error) {
+      state.token = '';
       localStorage.removeItem(STORAGE_KEYS.token);
     }
   }
