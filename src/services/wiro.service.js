@@ -1,5 +1,5 @@
 const env = require('../config/env');
-const { getGenerationModelConfig } = require('./model-catalog.service');
+const { getDefaultGenerationModel, getGenerationModelConfig } = require('./model-catalog.service');
 
 const RUNNING_TASK_STATUSES = new Set([
   'task_queue',
@@ -147,14 +147,15 @@ const pollTaskDetail = async ({ taskId, fetchImpl = fetch, pollIntervalMs = 2500
 };
 
 const submitImageGeneration = async ({ model, prompt, aspectRatio }, options = {}) => {
-  const modelConfig = getGenerationModelConfig('image', model);
-  if (!modelConfig) {
+  const selectedModel = model || getDefaultGenerationModel('image')?.id;
+  const modelConfig = getGenerationModelConfig('image', selectedModel);
+  if (!modelConfig || !selectedModel) {
     throw new Error('Unsupported image model');
   }
 
   const size = ensureSupportedSize(modelConfig, aspectRatio);
   const fields = buildImageFields({ prompt, aspectRatio: size });
-  const run = await submitAsyncRun({ model, fields, fetchImpl: options.fetchImpl });
+  const run = await submitAsyncRun({ model: selectedModel, fields, fetchImpl: options.fetchImpl });
   const task = await pollTaskDetail({ taskId: run.taskid, fetchImpl: options.fetchImpl, pollIntervalMs: options.pollIntervalMs, maxAttempts: options.maxAttempts });
 
   return {

@@ -145,6 +145,36 @@ test('submitImageGeneration resolves a configured image model end to end', async
   assert.equal(calls[1].url.endsWith('/Task/Detail'), true);
 });
 
+
+test('submitImageGeneration falls back to the default image model when omitted', async () => {
+  const calls = [];
+  const responses = [
+    { errors: [], taskid: 'task-default', result: true },
+    { tasklist: [{ status: 'task_postprocess_end', outputs: [{ url: 'https://cdn.example.com/default.png' }] }], errors: [], result: true },
+  ];
+  const fetchImpl = async (url, options) => {
+    calls.push({ url, options });
+    return {
+      ok: true,
+      async text() {
+        return JSON.stringify(responses.shift());
+      },
+    };
+  };
+
+  const result = await submitImageGeneration({
+    prompt: 'default model portrait',
+    aspectRatio: '1:1',
+  }, {
+    fetchImpl,
+    pollIntervalMs: 0,
+    maxAttempts: 2,
+  });
+
+  assert.equal(result.outputUrl, 'https://cdn.example.com/default.png');
+  assert.equal(calls[0].url.endsWith('/Run/openai/gpt-image-2-5-flare'), true);
+});
+
 test('pollTaskDetail keeps polling until the task completes', async () => {
   const calls = [];
   const responses = [

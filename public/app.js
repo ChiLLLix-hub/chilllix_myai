@@ -93,6 +93,8 @@ const MODEL_CATALOG = {
   },
 };
 
+let socketInstance = null;
+
 const state = {
   token: '',
   creditsBalance: 0,
@@ -134,6 +136,7 @@ const applySession = (payload) => {
   localStorage.setItem(STORAGE_KEYS.token, payload.token);
   localStorage.setItem(STORAGE_KEYS.creditsBalance, String(state.creditsBalance));
   syncCreditsBalance();
+  connectSocket();
 };
 
 const bootstrapSession = async () => {
@@ -180,7 +183,13 @@ const showSection = (sectionId) => {
 
 const setActiveDrawer = (drawer) => {
   state.activeDrawer = drawer;
-  state.activeAction = drawer === 'workspace' ? state.workspaceAction : null;
+  if (drawer === 'workspace') {
+    state.activeAction = state.workspaceAction;
+    updateActionHeader();
+    renderModelCards();
+  } else {
+    state.activeAction = null;
+  }
   showSection(drawer);
 };
 
@@ -368,9 +377,10 @@ const openCreatorForCategory = (category, promptText = '') => {
 };
 
 const connectSocket = () => {
-  if (!window.io) return;
-  const socket = window.io({ auth: state.token ? { token: state.token } : {} });
-  socket.on('generation:update', (payload) => {
+  if (!window.io || !state.token) return;
+  socketInstance?.disconnect();
+  socketInstance = window.io({ auth: { token: state.token } });
+  socketInstance.on('generation:update', (payload) => {
     updatePreview(payload);
   });
 };

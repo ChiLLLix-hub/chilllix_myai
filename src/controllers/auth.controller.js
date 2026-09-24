@@ -22,8 +22,8 @@ const login = async (req, res) => {
   res.json({ token: result.token, user: serializeUser(result.user) });
 };
 
-const guest = async (_req, res) => {
-  const result = await createGuestUser();
+const guest = async (req, res) => {
+  const result = await createGuestUser({ requestIp: req.ip });
   res.status(201).json({ token: result.token, user: serializeUser(result.user) });
 };
 
