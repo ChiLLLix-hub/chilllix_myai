@@ -87,3 +87,66 @@ npm start
 10. Check the Railway logs for:
     - `Database connection verified`
     - `Server listening on port ...`
+
+## cPanel Frontend -> Railway Backend Setup
+
+1. Deploy `/public` to cPanel `public_html`.
+2. Deploy backend on Railway and confirm health:
+
+   ```text
+   https://<your-app>.up.railway.app/health
+   ```
+
+3. In Railway variables, set at least:
+   - `NODE_ENV=production`
+   - `FRONTEND_ORIGIN=https://agromar.com.my`
+   - `JWT_SECRET=<strong-random-secret>`
+   - `DATABASE_URL=<railway-postgres-url>`
+   - `REDIS_URL=<railway-redis-url>` (if used)
+4. Run migration against Railway PostgreSQL:
+
+   ```bash
+   export DATABASE_URL="<railway-postgres-url>"
+   npm run db:migrate
+   ```
+
+   Run this in Railway shell/CLI or in a local shell where `DATABASE_URL` is explicitly set to the Railway PostgreSQL connection string.
+
+### Option A: Apache vhost reverse proxy `/api` and `/socket.io` to Railway
+
+1. Use `/deploy/apache-vhost-proxy.conf.example` in Apache vhost config.
+2. Replace `YOUR_RAILWAY_APP` with your Railway app hostname.
+3. Ensure Apache modules are enabled: `mod_proxy`, `mod_proxy_http`, `mod_proxy_wstunnel`, `mod_rewrite`.
+4. This option requires vhost-level access (WHM/root or managed host support).
+
+### Option B (fallback): use API subdomain directly
+
+If your hosting plan does not allow vhost proxy rules, point `api.agromar.com.my` directly to Railway and set frontend API base:
+
+- Edit `/public/index.html` and set:
+
+  ```html
+  <meta name="myai-api-base" content="https://api.agromar.com.my" />
+  ```
+
+  You can set either an origin (`https://api.agromar.com.my`) or an origin plus `/api` (`https://api.agromar.com.my/api`).
+
+You can also set `window.MYAI_API_BASE_URL` before loading `/public/app.js`; this takes priority over the meta tag (`window.CHILLLIX_API_BASE_URL` remains supported for backward compatibility).
+
+`FRONTEND_ORIGIN` remains your SPA URL (`https://agromar.com.my`) in both modes:
+- Reverse-proxy mode: API stays under the same origin via `/api`.
+- Direct-subdomain mode: browser calls `https://api...`, but backend CORS/CSRF must still trust the frontend origin (`https://agromar.com.my`).
+
+## `.env` Placement
+
+- **Railway production backend**: set environment variables in Railway dashboard (do not upload `.env`).
+- **Local development only**: keep `.env` in repository root.
+- **cPanel static frontend (`public_html`)**: do not keep `.env` in web-accessible directories.
+
+## End-to-End Verification Checklist
+
+1. Open browser DevTools -> Network.
+2. Reverse-proxy mode: confirm `/api/auth/register` and `/api/profile` return backend responses (not cPanel 404).
+3. Direct-subdomain mode: confirm requests go to your configured API base (for example `https://api.agromar.com.my/api/auth/register`) and return backend responses.
+4. Confirm signup and login both succeed.
+5. Confirm Socket.IO connects (no repeated websocket/transport errors).

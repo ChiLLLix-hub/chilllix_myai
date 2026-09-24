@@ -51,6 +51,29 @@ const MODEL_CATALOG = {
 
 const DEFAULT_CREDIT_COSTS = Object.freeze({ image: 10, video: 35, chat: 3 });
 const IMPLEMENTED_CREATOR_TYPES = new Set(['image']);
+const apiBaseMeta = document.querySelector('meta[name="myai-api-base"]')?.getAttribute('content') || '';
+const apiBaseWindow = typeof window.MYAI_API_BASE_URL === 'string'
+  ? window.MYAI_API_BASE_URL
+  : (typeof window.CHILLLIX_API_BASE_URL === 'string' ? window.CHILLLIX_API_BASE_URL : '');
+const apiBase = (apiBaseWindow || apiBaseMeta).trim().replace(/\/+$/, '');
+const apiSocketOrigin = (() => {
+  if (!apiBase) return '';
+  try {
+    const parsed = new URL(apiBase, window.location.origin);
+    return `${parsed.protocol}//${parsed.host}`;
+  } catch (_error) {
+    return '';
+  }
+})();
+const resolveApiUrl = (path) => {
+  if (/^https?:\/\//i.test(path)) return path;
+  if (!apiBase) return path;
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+  if (/\/api$/i.test(apiBase) && normalizedPath.startsWith('/api/')) {
+    return `${apiBase}${normalizedPath.slice(4)}`;
+  }
+  return `${apiBase}${normalizedPath}`;
+};
 
 let socketInstance = null;
 
@@ -112,7 +135,7 @@ const api = async (path, options = {}) => {
   if (!(options.body instanceof FormData) && !headers['Content-Type']) {
     headers['Content-Type'] = 'application/json';
   }
-  const response = await fetch(path, { credentials: 'include', ...options, headers });
+  const response = await fetch(resolveApiUrl(path), { credentials: 'include', ...options, headers });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
     const error = new Error(payload.error || 'Request failed');
@@ -196,7 +219,7 @@ const syncProfile = (profile) => {
 const connectSocket = () => {
   if (!window.io || !state.user) return;
   socketInstance?.disconnect();
-  socketInstance = window.io({ withCredentials: true });
+  socketInstance = window.io(apiSocketOrigin || undefined, { withCredentials: true });
   socketInstance.on('generation:update', async (payload) => {
     updatePreview(payload);
     if (['completed', 'failed'].includes(payload.status)) {
