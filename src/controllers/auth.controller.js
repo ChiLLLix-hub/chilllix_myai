@@ -23,8 +23,8 @@ const login = async (req, res) => {
 };
 
 const guest = async (req, res) => {
-  const result = await createGuestUser({ requestIp: req.ip });
-  res.status(201).json({ token: result.token, user: serializeUser(result.user) });
+  const result = await createGuestUser({ guestSessionId: req.body?.guestSessionId });
+  res.status(201).json({ guestSessionId: result.guestSessionId, token: result.token, user: serializeUser(result.user) });
 };
 
 module.exports = { register, login, guest, serializeUser };

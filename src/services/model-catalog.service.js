@@ -28,9 +28,17 @@ const SUPPORTED_MODELS_BY_TYPE = Object.freeze({
   video: Object.freeze({}),
   chat: Object.freeze({}),
 });
+const DEFAULT_MODELS_BY_TYPE = Object.freeze({
+  image: 'openai/gpt-image-2-5-flare',
+  video: null,
+  chat: null,
+});
 
 const getGenerationModelConfig = (type, model) => SUPPORTED_MODELS_BY_TYPE[type]?.[model] || null;
-const getDefaultGenerationModel = (type) => Object.values(SUPPORTED_MODELS_BY_TYPE[type] || {})[0] || null;
+const getDefaultGenerationModel = (type) => {
+  const modelId = DEFAULT_MODELS_BY_TYPE[type];
+  return modelId ? getGenerationModelConfig(type, modelId) : null;
+};
 
 const lookupSupportedGenerationModel = (type, model) => {
   if (type !== 'image') return null;
@@ -40,6 +48,7 @@ const lookupSupportedGenerationModel = (type, model) => {
 module.exports = {
   IMAGE_MODEL_CONFIGS,
   SUPPORTED_MODELS_BY_TYPE,
+  DEFAULT_MODELS_BY_TYPE,
   getGenerationModelConfig,
   getDefaultGenerationModel,
   lookupSupportedGenerationModel,

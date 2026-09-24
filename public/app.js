@@ -110,6 +110,7 @@ const IMPLEMENTED_CREATOR_TYPES = new Set(['image']);
 const STORAGE_KEYS = Object.freeze({
   token: 'chilllix.token',
   creditsBalance: 'chilllix.creditsBalance',
+  guestSessionId: 'chilllix.guestSessionId',
 });
 
 const $ = (selector) => document.querySelector(selector);
@@ -135,6 +136,9 @@ const applySession = (payload) => {
   state.creditsBalance = payload.user?.creditsBalance || 0;
   localStorage.setItem(STORAGE_KEYS.token, payload.token);
   localStorage.setItem(STORAGE_KEYS.creditsBalance, String(state.creditsBalance));
+  if (payload.guestSessionId) {
+    localStorage.setItem(STORAGE_KEYS.guestSessionId, payload.guestSessionId);
+  }
   syncCreditsBalance();
   connectSocket();
 };
@@ -153,6 +157,7 @@ const bootstrapSession = async () => {
       state.creditsBalance = profile.creditsBalance || 0;
       localStorage.setItem(STORAGE_KEYS.creditsBalance, String(state.creditsBalance));
       syncCreditsBalance();
+      connectSocket();
       return;
     } catch (_error) {
       state.token = '';
@@ -162,6 +167,7 @@ const bootstrapSession = async () => {
 
   const guestPayload = await api('/api/auth/guest', {
     method: 'POST',
+    body: JSON.stringify({ guestSessionId: localStorage.getItem(STORAGE_KEYS.guestSessionId) || undefined }),
   });
   applySession(guestPayload);
 };

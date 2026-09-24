@@ -6,7 +6,7 @@ const { signAccessToken } = require('../utils/jwt');
 const { HttpError } = require('../utils/http-error');
 
 const GUEST_SESSION_TTL_MS = 24 * 60 * 60 * 1000;
-const guestUsersByIp = new Map();
+const guestUsersBySessionId = new Map();
 
 const registerUser = async ({ email, password }) => {
   if (!User) {
@@ -33,28 +33,27 @@ const loginUser = async ({ email, password }) => {
   return { user, token: signAccessToken(user) };
 };
 
-const createGuestUser = async ({ requestIp } = {}) => {
+const createGuestUser = async ({ guestSessionId } = {}) => {
   if (!User) {
     throw new HttpError(503, 'Database is not configured');
   }
 
-  const cachedGuest = requestIp ? guestUsersByIp.get(requestIp) : null;
+  const sessionId = guestSessionId || crypto.randomUUID();
+  const cachedGuest = guestUsersBySessionId.get(sessionId);
   if (cachedGuest && cachedGuest.expiresAt > Date.now()) {
     const existingUser = await User.findByPk(cachedGuest.userId);
     if (existingUser && !existingUser.isSuspended) {
-      return { user: existingUser, token: signAccessToken(existingUser) };
+      return { guestSessionId: sessionId, user: existingUser, token: signAccessToken(existingUser) };
     }
-    guestUsersByIp.delete(requestIp);
+    guestUsersBySessionId.delete(sessionId);
   }
 
   const guestId = crypto.randomUUID();
   const email = `guest-${guestId}@demo.chilllix.local`;
   const passwordHash = await bcrypt.hash(crypto.randomUUID(), 12);
   const user = await User.create({ email, passwordHash, creditsBalance: env.starterCredits, role: 'user' });
-  if (requestIp) {
-    guestUsersByIp.set(requestIp, { userId: user.id, expiresAt: Date.now() + GUEST_SESSION_TTL_MS });
-  }
-  return { user, token: signAccessToken(user) };
+  guestUsersBySessionId.set(sessionId, { userId: user.id, expiresAt: Date.now() + GUEST_SESSION_TTL_MS });
+  return { guestSessionId: sessionId, user, token: signAccessToken(user) };
 };
 
 module.exports = { registerUser, loginUser, createGuestUser };
