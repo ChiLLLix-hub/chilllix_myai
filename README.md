@@ -116,7 +116,7 @@ npm start
 
 1. Use `/deploy/apache-vhost-proxy.conf.example` in Apache vhost config.
 2. Replace `YOUR_RAILWAY_APP` with your Railway app hostname.
-3. Ensure Apache modules are enabled: `mod_proxy`, `mod_proxy_http`, `mod_proxy_wstunnel`.
+3. Ensure Apache modules are enabled: `mod_proxy`, `mod_proxy_http`, `mod_proxy_wstunnel`, `mod_rewrite`.
 4. This option requires vhost-level access (WHM/root or managed host support).
 
 ### Option B (fallback): use API subdomain directly

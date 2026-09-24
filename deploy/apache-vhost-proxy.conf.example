@@ -1,10 +1,13 @@
 ProxyPreserveHost On
 SSLProxyEngine On
+RewriteEngine On
 
 # Replace host below with your Railway backend host.
 ProxyPass /api/ https://YOUR_RAILWAY_APP.up.railway.app/api/
 ProxyPassReverse /api/ https://YOUR_RAILWAY_APP.up.railway.app/api/
 
-ProxyPassMatch ^/socket\.io/(.*)$ wss://YOUR_RAILWAY_APP.up.railway.app/socket.io/$1
 ProxyPass /socket.io/ https://YOUR_RAILWAY_APP.up.railway.app/socket.io/
 ProxyPassReverse /socket.io/ https://YOUR_RAILWAY_APP.up.railway.app/socket.io/
+RewriteCond %{REQUEST_URI} ^/socket\.io/ [NC]
+RewriteCond %{HTTP:Upgrade} =websocket [NC]
+RewriteRule ^/socket\.io/(.*)$ wss://YOUR_RAILWAY_APP.up.railway.app/socket.io/$1 [P,L,QSA]
