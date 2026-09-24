@@ -104,6 +104,7 @@ const state = {
   activeAction: 'image',
   workspaceAction: 'image',
   selectedModel: null,
+  sessionReady: false,
 };
 
 const IMPLEMENTED_CREATOR_TYPES = new Set(['image']);
@@ -131,6 +132,19 @@ const syncCreditsBalance = () => {
   $('#credits-balance').textContent = String(state.creditsBalance || 0);
 };
 
+const setSessionAvailability = (isReady) => {
+  state.sessionReady = isReady;
+  const disabled = !isReady;
+  $$('#generate-submit, #save-prompt-btn, [data-select-model]').forEach((element) => {
+    if (element.matches('[data-select-model]')) {
+      const unavailableByCatalog = element.closest('.model-card')?.dataset.disabled === 'true';
+      element.disabled = disabled || unavailableByCatalog;
+      return;
+    }
+    element.disabled = disabled;
+  });
+};
+
 const applySession = (payload) => {
   state.token = payload.token;
   state.creditsBalance = payload.user?.creditsBalance || 0;
@@ -140,6 +154,7 @@ const applySession = (payload) => {
     localStorage.setItem(STORAGE_KEYS.guestSessionId, payload.guestSessionId);
   }
   syncCreditsBalance();
+  setSessionAvailability(true);
   connectSocket();
 };
 
@@ -157,6 +172,7 @@ const bootstrapSession = async () => {
       state.creditsBalance = profile.creditsBalance || 0;
       localStorage.setItem(STORAGE_KEYS.creditsBalance, String(state.creditsBalance));
       syncCreditsBalance();
+      setSessionAvailability(true);
       connectSocket();
       return;
     } catch (_error) {
@@ -407,6 +423,10 @@ const api = async (path, options = {}) => {
 
 $('#generation-form').addEventListener('submit', async (event) => {
   event.preventDefault();
+  if (!state.sessionReady) {
+    updatePreview({ status: 'Session setup failed', progress: 0 });
+    return;
+  }
   updatePreview({ status: 'queued', progress: 12 });
   try {
     resetPreview();
@@ -426,6 +446,10 @@ $('#generation-form').addEventListener('submit', async (event) => {
 });
 
 $('#save-prompt-btn').addEventListener('click', async () => {
+  if (!state.sessionReady) {
+    updatePreview({ status: 'Session setup failed', progress: 0 });
+    return;
+  }
   try {
     const prompt = await api('/api/prompts', {
       method: 'POST',
@@ -463,6 +487,10 @@ document.addEventListener('click', (event) => {
 
   const modelButton = event.target.closest('[data-select-model]');
   if (modelButton) {
+    if (!state.sessionReady) {
+      updatePreview({ status: 'Session setup failed', progress: 0 });
+      return;
+    }
     const catalog = MODEL_CATALOG[state.activeAction];
     const selected = catalog.models.find((model) => model.id === modelButton.dataset.selectModel);
     if (selected?.available) populateCreator(selected);
@@ -484,10 +512,13 @@ document.addEventListener('click', (event) => {
   renderPrompts();
   showSection('workspace');
   syncCreditsBalance();
+  setSessionAvailability(false);
   try {
     await bootstrapSession();
   } catch (error) {
+    setSessionAvailability(false);
     updatePreview({ status: error.message, progress: 0 });
+    return;
   }
   connectSocket();
 })();
