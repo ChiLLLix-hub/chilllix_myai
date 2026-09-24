@@ -24,6 +24,7 @@ test('cleanJson recursively sanitizes nested values', () => {
 
 test('auth cookie helpers parse cookies and prefer bearer tokens', () => {
   assert.deepEqual(parseCookies('a=1; chilllix_session=test-token'), { a: '1', chilllix_session: 'test-token' });
+  assert.equal(parseCookies('chilllix_session=%E0%A4%A').chilllix_session, '%E0%A4%A');
   assert.equal(getAuthTokenFromRequest({ headers: { cookie: 'chilllix_session=test-token' } }), 'test-token');
   assert.equal(getAuthTokenFromRequest({ headers: { authorization: 'Bearer'.concat(' api-token'), cookie: 'chilllix_session=test-token' } }), 'api-token');
 });
@@ -443,8 +444,10 @@ test('runMigration reads the SQL file and executes it with the configured client
   assert.deepEqual(events, [
     'connect',
     ['log', 'Connected to PostgreSQL'],
+    ['query', 'BEGIN'],
     ['query', 'SELECT 1;'],
     ['query', 'SELECT 1;'],
+    ['query', 'COMMIT'],
     ['log', 'Migration applied successfully'],
     'end',
   ]);
@@ -478,5 +481,40 @@ test('runMigration preserves the original migration error if cleanup also fails'
     'connect',
     ['log', 'Connected to PostgreSQL'],
     ['error', 'Migration cleanup failed', 'end failed'],
+  ]);
+});
+
+test('runMigration rolls back when a later migration fails', async () => {
+  const events = [];
+
+  await assert.rejects(
+    () => runMigration({
+      databaseUrl: 'postgres://db.example.com:5432/app?sslmode=require',
+      nodeEnv: 'production',
+      readdir: async () => ['001_init.sql', '002_auth_sessions_and_dashboards.sql'],
+      readFile: async (_filePath) => 'SELECT 1;',
+      clientFactory: () => ({
+        connect: async () => events.push('connect'),
+        query: async (sql) => {
+          events.push(['query', sql]);
+          if (sql === 'SELECT 1;' && events.filter((event) => Array.isArray(event) && event[0] === 'query' && event[1] === 'SELECT 1;').length > 1) {
+            throw new Error('migration failed');
+          }
+        },
+        end: async () => events.push('end'),
+      }),
+      log: (message) => events.push(['log', message]),
+    }),
+    /migration failed/,
+  );
+
+  assert.deepEqual(events, [
+    'connect',
+    ['log', 'Connected to PostgreSQL'],
+    ['query', 'BEGIN'],
+    ['query', 'SELECT 1;'],
+    ['query', 'SELECT 1;'],
+    ['query', 'ROLLBACK'],
+    'end',
   ]);
 });

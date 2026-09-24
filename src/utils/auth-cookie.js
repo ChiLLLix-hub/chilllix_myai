@@ -5,7 +5,12 @@ const AUTH_COOKIE_NAME = 'chilllix_session';
 const parseCookies = (header = '') => header.split(';').reduce((acc, part) => {
   const [rawName, ...rawValue] = part.trim().split('=');
   if (!rawName) return acc;
-  acc[rawName] = decodeURIComponent(rawValue.join('='));
+  const value = rawValue.join('=');
+  try {
+    acc[rawName] = decodeURIComponent(value);
+  } catch (_error) {
+    acc[rawName] = value;
+  }
   return acc;
 }, {});
 

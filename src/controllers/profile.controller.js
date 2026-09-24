@@ -15,12 +15,6 @@ const serializeProfile = (user, settings) => ({
     chat: Number(settings.credit_cost_chat),
   },
   isSuspended: user.isSuspended,
-  failedLoginAttempts: user.failedLoginAttempts,
-  lockedUntil: user.lockedUntil,
-  lastLoginAt: user.lastLoginAt,
-  lastLoginIp: user.lastLoginIp,
-  lastLoginLatitude: user.lastLoginLatitude,
-  lastLoginLongitude: user.lastLoginLongitude,
   createdAt: user.createdAt,
 });
 
@@ -61,6 +55,14 @@ const getDashboard = async (req, res) => {
 
   res.json({
     profile: serializeProfile(user, settings),
+    security: {
+      failedLoginAttempts: user.failedLoginAttempts,
+      lockedUntil: user.lockedUntil,
+      lastLoginAt: user.lastLoginAt,
+      lastLoginIp: user.lastLoginIp,
+      lastLoginLatitude: user.lastLoginLatitude,
+      lastLoginLongitude: user.lastLoginLongitude,
+    },
     stats: {
       totalGenerations,
       successfulGenerations,

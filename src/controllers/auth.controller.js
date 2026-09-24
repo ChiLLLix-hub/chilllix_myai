@@ -11,12 +11,6 @@ const serializeUser = (user) => ({
   avatarUrl: user.avatarUrl,
   creditsBalance: user.creditsBalance,
   isSuspended: user.isSuspended,
-  failedLoginAttempts: user.failedLoginAttempts,
-  lockedUntil: user.lockedUntil,
-  lastLoginAt: user.lastLoginAt,
-  lastLoginIp: user.lastLoginIp,
-  lastLoginLatitude: user.lastLoginLatitude,
-  lastLoginLongitude: user.lastLoginLongitude,
   createdAt: user.createdAt,
 });
 

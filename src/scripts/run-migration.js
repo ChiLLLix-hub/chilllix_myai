@@ -58,13 +58,22 @@ const runMigration = async ({
     await client.connect();
     connected = true;
     log('Connected to PostgreSQL');
+    await client.query('BEGIN');
     for (const fileName of migrationFiles) {
       const sql = await readFile(path.join(migrationsDirectory, fileName), 'utf8');
       await client.query(sql);
     }
+    await client.query('COMMIT');
     log('Migration applied successfully');
   } catch (error) {
     migrationError = error;
+    if (connected && client) {
+      try {
+        await client.query('ROLLBACK');
+      } catch (_rollbackError) {
+        // keep original migration failure
+      }
+    }
     throw error;
   } finally {
     if (connected) {

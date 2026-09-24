@@ -45,24 +45,52 @@ const renderUsers = () => {
   if (!state.users.length) return host.appendChild(createElement('div', 'activity-card text-sm text-slate-400', 'No users matched the current search.'));
   state.users.forEach((user) => {
     const card = createElement('article', 'activity-card');
-    card.innerHTML = `
-      <div class="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
-        <div>
-          <p class="font-medium text-slate-100">${user.email}</p>
-          <p class="mt-1 text-xs text-slate-500">Last login ${formatDate(user.lastLoginAt)} · IP ${user.lastLoginIp || '—'} · coords ${user.lastLoginLatitude ?? '—'}, ${user.lastLoginLongitude ?? '—'}</p>
-        </div>
-        <div class="flex flex-wrap gap-2 text-xs">
-          <span class="rounded-full border border-white/10 px-3 py-1">${user.role}</span>
-          <span class="rounded-full border border-white/10 px-3 py-1">${user.isSuspended ? 'Suspended' : (user.lockedUntil ? 'Temp Locked' : 'Active')}</span>
-        </div>
-      </div>
-      <form class="mt-4 grid gap-3 lg:grid-cols-5" data-user-form="${user.id}">
-        <input class="input" type="number" name="creditsBalance" min="0" value="${user.creditsBalance || 0}" />
-        <select class="input" name="role"><option value="user" ${user.role === 'user' ? 'selected' : ''}>user</option><option value="admin" ${user.role === 'admin' ? 'selected' : ''}>admin</option></select>
-        <select class="input" name="isSuspended"><option value="false" ${!user.isSuspended ? 'selected' : ''}>active</option><option value="true" ${user.isSuspended ? 'selected' : ''}>suspended</option></select>
-        <label class="flex items-center gap-2 text-sm text-slate-300"><input type="checkbox" name="clearLoginLock" /> Clear login lock</label>
-        <button class="primary-btn" type="submit">Save</button>
-      </form>`;
+    const header = createElement('div', 'flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between');
+    const identity = createElement('div', '');
+    identity.appendChild(createElement('p', 'font-medium text-slate-100', user.email));
+    identity.appendChild(createElement('p', 'mt-1 text-xs text-slate-500', `Last login ${formatDate(user.lastLoginAt)} · IP ${user.lastLoginIp || '—'} · coords ${user.lastLoginLatitude ?? '—'}, ${user.lastLoginLongitude ?? '—'}`));
+    const badges = createElement('div', 'flex flex-wrap gap-2 text-xs');
+    badges.appendChild(createElement('span', 'rounded-full border border-white/10 px-3 py-1', user.role));
+    badges.appendChild(createElement('span', 'rounded-full border border-white/10 px-3 py-1', user.isSuspended ? 'Suspended' : (user.lockedUntil ? 'Temp Locked' : 'Active')));
+    header.append(identity, badges);
+
+    const form = createElement('form', 'mt-4 grid gap-3 lg:grid-cols-5');
+    form.dataset.userForm = user.id;
+    const credits = createElement('input', 'input');
+    credits.type = 'number';
+    credits.name = 'creditsBalance';
+    credits.min = '0';
+    credits.value = String(user.creditsBalance || 0);
+
+    const role = createElement('select', 'input');
+    role.name = 'role';
+    ['user', 'admin'].forEach((value) => {
+      const option = createElement('option', '', value);
+      option.value = value;
+      option.selected = user.role === value;
+      role.appendChild(option);
+    });
+
+    const suspended = createElement('select', 'input');
+    suspended.name = 'isSuspended';
+    [['false', 'active'], ['true', 'suspended']].forEach(([value, text]) => {
+      const option = createElement('option', '', text);
+      option.value = value;
+      option.selected = String(user.isSuspended) === value;
+      suspended.appendChild(option);
+    });
+
+    const clearLabel = createElement('label', 'flex items-center gap-2 text-sm text-slate-300');
+    const clearBox = createElement('input', '');
+    clearBox.type = 'checkbox';
+    clearBox.name = 'clearLoginLock';
+    clearLabel.append(clearBox, document.createTextNode('Clear login lock'));
+
+    const save = createElement('button', 'primary-btn', 'Save');
+    save.type = 'submit';
+
+    form.append(credits, role, suspended, clearLabel, save);
+    card.append(header, form);
     host.appendChild(card);
   });
 };

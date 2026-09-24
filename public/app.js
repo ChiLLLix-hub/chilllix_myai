@@ -358,14 +358,23 @@ const renderTransactions = () => {
 };
 
 const renderSettings = () => {
+  const security = state.dashboard?.security || {};
   $('#settings-avatar').value = state.user?.avatarUrl || '';
-  $('#settings-account').innerHTML = `
-    <p><strong>Email:</strong> ${state.user?.email || '—'}</p>
-    <p><strong>Last Login:</strong> ${formatDate(state.user?.lastLoginAt)}</p>
-    <p><strong>Last Login IP:</strong> ${state.user?.lastLoginIp || '—'}</p>
-    <p><strong>Last Coordinates:</strong> ${formatCoordinates(state.user || {})}</p>
-    <p><strong>Temporary Lock:</strong> ${state.user?.lockedUntil ? formatDate(state.user.lockedUntil) : 'Not locked'}</p>
-  `;
+  const account = $('#settings-account');
+  account.innerHTML = '';
+  [
+    ['Email', state.user?.email || '—'],
+    ['Last Login', formatDate(security.lastLoginAt)],
+    ['Last Login IP', security.lastLoginIp || '—'],
+    ['Last Coordinates', formatCoordinates(security)],
+    ['Temporary Lock', security.lockedUntil ? formatDate(security.lockedUntil) : 'Not locked'],
+  ].forEach(([label, value]) => {
+    const row = createElement('p', '');
+    const strong = createElement('strong', '', `${label}: `);
+    row.appendChild(strong);
+    row.appendChild(document.createTextNode(String(value)));
+    account.appendChild(row);
+  });
   renderDashboardList('#settings-security', state.dashboard?.recentLogins, (log) => {
     const card = createElement('article', 'activity-card');
     card.appendChild(createElement('p', 'font-medium', log.action));
