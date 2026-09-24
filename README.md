@@ -87,3 +87,55 @@ npm start
 10. Check the Railway logs for:
     - `Database connection verified`
     - `Server listening on port ...`
+
+## cPanel Frontend -> Railway Backend Setup
+
+1. Deploy `/public` to cPanel `public_html`.
+2. Deploy backend on Railway and confirm health:
+
+   ```text
+   https://<your-app>.up.railway.app/health
+   ```
+
+3. In Railway variables, set at least:
+   - `NODE_ENV=production`
+   - `FRONTEND_ORIGIN=https://agromar.com.my`
+   - `JWT_SECRET=<strong-random-secret>`
+   - `DATABASE_URL=<railway-postgres-url>`
+   - `REDIS_URL=<railway-redis-url>` (if used)
+4. Run migration against Railway PostgreSQL:
+
+   ```bash
+   npm run db:migrate
+   ```
+
+### Option A: cPanel reverse proxy `/api` and `/socket.io` to Railway
+
+1. Copy `/public/.htaccess.example` to `/public/.htaccess`.
+2. Replace `YOUR_RAILWAY_APP` with your Railway app hostname.
+3. Ensure your cPanel host allows `mod_proxy` in `.htaccess`.
+
+### Option B (fallback): use API subdomain directly
+
+If your cPanel host cannot proxy in `.htaccess`, point `api.agromar.com.my` directly to Railway and set frontend API base:
+
+- Edit `/public/index.html` and set:
+
+  ```html
+  <meta name="chilllix-api-base" content="https://api.agromar.com.my" />
+  ```
+
+You can also set `window.CHILLLIX_API_BASE_URL` before loading `/public/app.js`; this takes priority over the meta tag.
+
+## `.env` Placement
+
+- **Railway production backend**: set environment variables in Railway dashboard (do not upload `.env`).
+- **Local development only**: keep `.env` in repository root.
+- **cPanel static frontend (`public_html`)**: do not keep `.env` in web-accessible directories.
+
+## End-to-End Verification Checklist
+
+1. Open browser DevTools -> Network.
+2. Confirm `/api/auth/register` and `/api/profile` return backend responses (not cPanel 404).
+3. Confirm signup and login both succeed.
+4. Confirm Socket.IO connects (no repeated websocket/transport errors).

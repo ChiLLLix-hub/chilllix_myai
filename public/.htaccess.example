@@ -1,0 +1,5 @@
+RewriteEngine On
+
+# Set your Railway backend hostname below.
+RewriteRule ^api/(.*)$ https://YOUR_RAILWAY_APP.up.railway.app/api/$1 [P,L,QSA,NE]
+RewriteRule ^socket\.io/(.*)$ https://YOUR_RAILWAY_APP.up.railway.app/socket.io/$1 [P,L,QSA,NE]

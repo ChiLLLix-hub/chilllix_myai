@@ -51,6 +51,14 @@ const MODEL_CATALOG = {
 
 const DEFAULT_CREDIT_COSTS = Object.freeze({ image: 10, video: 35, chat: 3 });
 const IMPLEMENTED_CREATOR_TYPES = new Set(['image']);
+const apiBaseMeta = document.querySelector('meta[name="chilllix-api-base"]')?.getAttribute('content') || '';
+const apiBaseWindow = typeof window.CHILLLIX_API_BASE_URL === 'string' ? window.CHILLLIX_API_BASE_URL : '';
+const normalizedApiBase = (apiBaseWindow || apiBaseMeta).trim().replace(/\/+$/, '');
+const apiOrigin = normalizedApiBase.replace(/\/api$/, '');
+const resolveApiUrl = (path) => {
+  if (!apiOrigin) return path;
+  return `${apiOrigin}${path.startsWith('/') ? path : `/${path}`}`;
+};
 
 let socketInstance = null;
 
@@ -112,7 +120,7 @@ const api = async (path, options = {}) => {
   if (!(options.body instanceof FormData) && !headers['Content-Type']) {
     headers['Content-Type'] = 'application/json';
   }
-  const response = await fetch(path, { credentials: 'include', ...options, headers });
+  const response = await fetch(resolveApiUrl(path), { credentials: 'include', ...options, headers });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
     const error = new Error(payload.error || 'Request failed');
@@ -196,7 +204,7 @@ const syncProfile = (profile) => {
 const connectSocket = () => {
   if (!window.io || !state.user) return;
   socketInstance?.disconnect();
-  socketInstance = window.io({ withCredentials: true });
+  socketInstance = window.io(apiOrigin || undefined, { withCredentials: true });
   socketInstance.on('generation:update', async (payload) => {
     updatePreview(payload);
     if (['completed', 'failed'].includes(payload.status)) {
