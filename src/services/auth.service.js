@@ -1,4 +1,3 @@
-const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const { User } = require('../models');
 const env = require('../config/env');
@@ -30,20 +29,4 @@ const loginUser = async ({ email, password }) => {
   return { user, token: signAccessToken(user) };
 };
 
-const createGuestUser = async ({ guestSessionId } = {}) => {
-  if (!User) {
-    throw new HttpError(503, 'Database is not configured');
-  }
-
-  const sessionId = guestSessionId || crypto.randomUUID();
-  const email = `guest-session-${sessionId}@demo.chilllix.local`;
-  const existingUser = await User.findOne({ where: { email } });
-  if (existingUser && !existingUser.isSuspended) {
-    return { guestSessionId: sessionId, user: existingUser, token: signAccessToken(existingUser) };
-  }
-  const passwordHash = await bcrypt.hash(crypto.randomUUID(), 12);
-  const user = await User.create({ email, passwordHash, creditsBalance: env.starterCredits, role: 'user' });
-  return { guestSessionId: sessionId, user, token: signAccessToken(user) };
-};
-
-module.exports = { registerUser, loginUser, createGuestUser };
+module.exports = { registerUser, loginUser };

@@ -11,8 +11,31 @@ body {
   box-shadow: 0 30px 60px rgba(0, 0, 0, 0.35);
 }
 
+.auth-shell {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+}
+
+.auth-panel {
+  width: min(1100px, 100%);
+  border-radius: 2rem;
+  padding: 1.5rem;
+  display: grid;
+  gap: 1.5rem;
+}
+
+.auth-copy {
+  padding: 1rem;
+}
+
+.auth-tabs,
 .app-shell {
   display: grid;
+}
+
+.app-shell {
   min-height: 100vh;
   gap: 1.25rem;
   padding: 1.25rem;
@@ -42,7 +65,8 @@ body {
 }
 
 .topbar-actions,
-.drawer-nav {
+.drawer-nav,
+.auth-tabs {
   display: flex;
   flex-wrap: wrap;
   gap: 0.75rem;
@@ -61,6 +85,10 @@ body {
   background: rgba(15, 23, 42, 0.8);
   padding: 0.85rem 1rem;
   color: #e2e8f0;
+}
+
+.input::placeholder {
+  color: #64748b;
 }
 
 .primary-btn,
@@ -86,6 +114,15 @@ body {
 .drawer-btn {
   border: 1px solid rgba(255, 255, 255, 0.1);
   background: rgba(255, 255, 255, 0.04);
+}
+
+.primary-btn:disabled,
+.secondary-btn:disabled,
+.drawer-btn:disabled,
+.topbar-btn:disabled,
+.model-card-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 .model-card-grid {
@@ -159,9 +196,35 @@ body {
   color: #cbd5e1;
 }
 
+.admin-user-card {
+  display: grid;
+  gap: 1rem;
+  border-radius: 1.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(15, 23, 42, 0.45);
+  padding: 1rem;
+}
+
+.admin-user-form {
+  display: grid;
+  gap: 0.75rem;
+}
+
 @keyframes shimmer {
   0% { background-position: 200% 0; }
   100% { background-position: -200% 0; }
+}
+
+@media (min-width: 768px) {
+  .auth-panel {
+    grid-template-columns: minmax(0, 1.05fr) minmax(360px, 0.95fr);
+    padding: 2rem;
+  }
+
+  .admin-user-form {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
+    align-items: end;
+  }
 }
 
 @media (min-width: 1024px) {
