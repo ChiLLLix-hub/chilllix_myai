@@ -115,8 +115,16 @@ const createElement = (tag, className, text) => {
 const showSection = (sectionId) => {
   $$('.content-section').forEach((section) => section.classList.add('hidden'));
   $(`#${sectionId}`)?.classList.remove('hidden');
-  $$('.drawer-btn').forEach((button) => button.classList.toggle('active', button.dataset.drawer === state.activeDrawer));
-  $$('.topbar-btn').forEach((button) => button.classList.toggle('active', button.dataset.action === state.activeAction));
+  $$('.drawer-btn').forEach((button) => {
+    const isActive = button.dataset.drawer === state.activeDrawer;
+    button.classList.toggle('active', isActive);
+    button.setAttribute('aria-pressed', String(isActive));
+  });
+  $$('.topbar-btn').forEach((button) => {
+    const isActive = button.dataset.action === state.activeAction;
+    button.classList.toggle('active', isActive);
+    button.setAttribute('aria-pressed', String(isActive));
+  });
 };
 
 const setActiveDrawer = (drawer) => {
@@ -286,6 +294,19 @@ const setTopAction = (action) => {
   showSection('workspace');
 };
 
+const openCreatorForCategory = (category, promptText = '') => {
+  const catalog = MODEL_CATALOG[category];
+  const selected = catalog?.models.find((model) => model.available);
+  if (!selected) {
+    alert(`No ${category} creator is available yet.`);
+    return;
+  }
+
+  setTopAction(category);
+  populateCreator(selected);
+  if (promptText) $('#prompt').value = promptText;
+};
+
 const connectSocket = () => {
   if (!window.io) return;
   const socket = window.io({ auth: state.token ? { token: state.token } : {} });
@@ -375,8 +396,7 @@ document.addEventListener('click', (event) => {
   if (usePromptButton) {
     const selected = state.savedPrompts.find((item) => item.id === usePromptButton.dataset.usePrompt);
     if (selected) {
-      $('#prompt').value = selected.promptText;
-      setTopAction(selected.category);
+      openCreatorForCategory(selected.category, selected.promptText);
     }
   }
 });

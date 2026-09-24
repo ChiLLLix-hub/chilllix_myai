@@ -81,6 +81,36 @@ test('submitAsyncRun posts multipart form data to the model run endpoint', async
   assert.ok(calls[0].options.body instanceof FormData);
 });
 
+test('submitAsyncRun surfaces Wiro error payloads and missing task ids', async () => {
+  await assert.rejects(
+    () => submitAsyncRun({
+      model: 'openai/gpt-image-2',
+      fields: { prompt: 'cat' },
+      fetchImpl: async () => ({
+        ok: true,
+        async text() {
+          return JSON.stringify({ errors: ['rate limited'], result: false });
+        },
+      }),
+    }),
+    /rate limited/,
+  );
+
+  await assert.rejects(
+    () => submitAsyncRun({
+      model: 'openai/gpt-image-2',
+      fields: { prompt: 'cat' },
+      fetchImpl: async () => ({
+        ok: true,
+        async text() {
+          return JSON.stringify({ errors: [], result: true });
+        },
+      }),
+    }),
+    /did not return a task id/,
+  );
+});
+
 test('pollTaskDetail keeps polling until the task completes', async () => {
   const calls = [];
   const responses = [
@@ -103,6 +133,53 @@ test('pollTaskDetail keeps polling until the task completes', async () => {
   assert.equal(calls.length, 2);
   assert.equal(calls[0].url.endsWith('/Task/Detail'), true);
   assert.equal(JSON.parse(calls[0].options.body).taskid, 'task-9');
+});
+
+test('pollTaskDetail rejects failed, unknown, and timed out tasks', async () => {
+  await assert.rejects(
+    () => pollTaskDetail({
+      taskId: 'task-fail',
+      fetchImpl: async () => ({
+        ok: true,
+        async text() {
+          return JSON.stringify({ tasklist: [{ status: 'task_error', debugerror: 'upstream failed', outputs: [] }], errors: [], result: true });
+        },
+      }),
+      pollIntervalMs: 0,
+      maxAttempts: 1,
+    }),
+    /upstream failed/,
+  );
+
+  await assert.rejects(
+    () => pollTaskDetail({
+      taskId: 'task-weird',
+      fetchImpl: async () => ({
+        ok: true,
+        async text() {
+          return JSON.stringify({ tasklist: [{ status: 'task_weird', outputs: [] }], errors: [], result: true });
+        },
+      }),
+      pollIntervalMs: 0,
+      maxAttempts: 1,
+    }),
+    /unknown status/,
+  );
+
+  await assert.rejects(
+    () => pollTaskDetail({
+      taskId: 'task-timeout',
+      fetchImpl: async () => ({
+        ok: true,
+        async text() {
+          return JSON.stringify({ tasklist: [{ status: 'task_start', outputs: [] }], errors: [], result: true });
+        },
+      }),
+      pollIntervalMs: 0,
+      maxAttempts: 1,
+    }),
+    /timed out/,
+  );
 });
 
 test('shouldCleanupGeneration only returns true for expired active assets', () => {
