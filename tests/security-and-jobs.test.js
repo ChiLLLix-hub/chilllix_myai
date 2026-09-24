@@ -1,7 +1,10 @@
+process.env.WIRO_API_KEY = 'test-wiro-key';
+
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { cleanString, cleanStringArray, cleanJson } = require('../src/utils/sanitize');
-const { resolveGenerationCosts, calculateExpiryDate, persistCompletedGeneration, refundFailedGeneration } = require('../src/services/generation.service');
+const { resolveGenerationCosts, calculateExpiryDate, resolveRequestedModel, persistCompletedGeneration, refundFailedGeneration } = require('../src/services/generation.service');
+const { buildImageFields, ensureSupportedSize, extractOutputUrl, pollTaskDetail, submitAsyncRun } = require('../src/services/wiro.service');
 const { shouldCleanupGeneration } = require('../src/jobs/cleanup.job');
 const { buildSslConfig, runMigration } = require('../src/scripts/run-migration');
 
@@ -24,6 +27,82 @@ test('resolveGenerationCosts respects configured settings', () => {
 test('calculateExpiryDate defaults into the future', () => {
   const expiresAt = calculateExpiryDate(7);
   assert.ok(expiresAt > new Date());
+});
+
+test('resolveRequestedModel only allows configured image models', () => {
+  assert.equal(resolveRequestedModel({ type: 'image', model: 'openai/gpt-image-2' }), 'openai/gpt-image-2');
+  assert.equal(resolveRequestedModel({ type: 'video', model: undefined }), null);
+  assert.throws(() => resolveRequestedModel({ type: 'image', model: 'bad/model' }), /Unsupported image model/);
+});
+
+test('buildImageFields maps prompt and requested size', () => {
+  assert.deepEqual(buildImageFields({ prompt: 'sunset skyline', aspectRatio: '3:2' }), {
+    prompt: 'sunset skyline',
+    size: '3:2',
+  });
+});
+
+test('ensureSupportedSize rejects undeclared image sizes', () => {
+  const modelConfig = {
+    id: 'openai/gpt-image-2',
+    fields: { sizeOptions: ['auto', '1:1', '3:2', '2:3'] },
+  };
+  assert.equal(ensureSupportedSize(modelConfig, '1:1'), '1:1');
+  assert.throws(() => ensureSupportedSize(modelConfig, '16:9'), /Unsupported image size/);
+});
+
+test('extractOutputUrl returns the first output url', () => {
+  assert.equal(extractOutputUrl({ outputs: [{ url: 'https://cdn.example.com/file.png' }] }), 'https://cdn.example.com/file.png');
+  assert.throws(() => extractOutputUrl({ outputs: [] }), /without an output URL/);
+});
+
+test('submitAsyncRun posts multipart form data to the model run endpoint', async () => {
+  const calls = [];
+  const fetchImpl = async (url, options) => {
+    calls.push({ url, options });
+    return {
+      ok: true,
+      async text() {
+        return JSON.stringify({ errors: [], taskid: 'task-1', result: true });
+      },
+    };
+  };
+
+  const result = await submitAsyncRun({
+    model: 'openai/gpt-image-2',
+    fields: { prompt: 'cat', size: '1:1' },
+    fetchImpl,
+  });
+
+  assert.equal(result.taskid, 'task-1');
+  assert.equal(calls[0].url.endsWith('/Run/openai/gpt-image-2'), true);
+  assert.equal(calls[0].options.method, 'POST');
+  assert.equal(calls[0].options.headers['x-api-key'], 'test-wiro-key');
+  assert.ok(calls[0].options.body instanceof FormData);
+});
+
+test('pollTaskDetail keeps polling until the task completes', async () => {
+  const calls = [];
+  const responses = [
+    { tasklist: [{ status: 'task_start', outputs: [] }], errors: [], result: true },
+    { tasklist: [{ status: 'task_postprocess_end', outputs: [{ url: 'https://cdn.example.com/done.png' }] }], errors: [], result: true },
+  ];
+  const fetchImpl = async (url, options) => {
+    calls.push({ url, options });
+    return {
+      ok: true,
+      async text() {
+        return JSON.stringify(responses.shift());
+      },
+    };
+  };
+
+  const task = await pollTaskDetail({ taskId: 'task-9', fetchImpl, pollIntervalMs: 0, maxAttempts: 3 });
+
+  assert.equal(task.status, 'task_postprocess_end');
+  assert.equal(calls.length, 2);
+  assert.equal(calls[0].url.endsWith('/Task/Detail'), true);
+  assert.equal(JSON.parse(calls[0].options.body).taskid, 'task-9');
 });
 
 test('shouldCleanupGeneration only returns true for expired active assets', () => {

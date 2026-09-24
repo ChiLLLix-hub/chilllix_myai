@@ -1,8 +1,106 @@
+const MODEL_CATALOG = {
+  image: {
+    title: 'Choose an image model',
+    description: 'Select a production image model, then continue to the creator page.',
+    models: [
+      {
+        id: 'openai/gpt-image-2-5-flare',
+        type: 'image',
+        provider: 'OpenAI',
+        name: 'GPT Image 2.5 Flare',
+        blurb: 'Fast premium image generation for polished marketing, concept, and product visuals.',
+        badge: 'Text to Image',
+        meta: 'Async Wiro Run + Task Detail',
+        sizeOptions: ['auto', '1:1', '3:2', '2:3'],
+        cta: 'Open Creator',
+        available: true,
+        hero: 'linear-gradient(135deg, rgba(30, 41, 59, 0.15), rgba(8, 145, 178, 0.12)), url(https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=1200&q=80)',
+      },
+      {
+        id: 'openai/gpt-image-2',
+        type: 'image',
+        provider: 'OpenAI',
+        name: 'GPT Image 2',
+        blurb: 'Balanced OpenAI image model for dependable generation and editing tasks.',
+        badge: 'Text to Image',
+        meta: 'Async Wiro Run + Task Detail',
+        sizeOptions: ['auto', '1:1', '3:2', '2:3'],
+        cta: 'Open Creator',
+        available: true,
+        hero: 'linear-gradient(135deg, rgba(59, 130, 246, 0.16), rgba(124, 58, 237, 0.18)), url(https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1200&q=80)',
+      },
+    ],
+  },
+  video: {
+    title: 'Choose a video model',
+    description: 'Video model cards are ready in the UI and can be wired to creation flows next.',
+    models: [
+      {
+        id: 'video-coming-soon-1',
+        type: 'video',
+        provider: 'Wiro',
+        name: 'Video Studio',
+        blurb: 'Reserved slot for the first production video workflow.',
+        badge: 'Coming Soon',
+        meta: 'Video integration next step',
+        cta: 'Coming Soon',
+        available: false,
+        hero: 'linear-gradient(135deg, rgba(14, 116, 144, 0.55), rgba(15, 23, 42, 0.9))',
+      },
+      {
+        id: 'video-coming-soon-2',
+        type: 'video',
+        provider: 'Wiro',
+        name: 'Motion Pro',
+        blurb: 'Prepared catalog slot for cinematic video generation models.',
+        badge: 'Coming Soon',
+        meta: 'Video integration next step',
+        cta: 'Coming Soon',
+        available: false,
+        hero: 'linear-gradient(135deg, rgba(91, 33, 182, 0.55), rgba(15, 23, 42, 0.9))',
+      },
+    ],
+  },
+  chat: {
+    title: 'Choose a chat model',
+    description: 'Chat model cards are in place so the creator flow can be connected after image rollout.',
+    models: [
+      {
+        id: 'chat-coming-soon-1',
+        type: 'chat',
+        provider: 'Wiro',
+        name: 'Chat Assistant',
+        blurb: 'Reserved slot for a focused chat generation experience.',
+        badge: 'Coming Soon',
+        meta: 'Chat integration next step',
+        cta: 'Coming Soon',
+        available: false,
+        hero: 'linear-gradient(135deg, rgba(22, 163, 74, 0.45), rgba(15, 23, 42, 0.9))',
+      },
+      {
+        id: 'chat-coming-soon-2',
+        type: 'chat',
+        provider: 'Wiro',
+        name: 'Reasoning Agent',
+        blurb: 'Prepared slot for future conversational model routing.',
+        badge: 'Coming Soon',
+        meta: 'Chat integration next step',
+        cta: 'Coming Soon',
+        available: false,
+        hero: 'linear-gradient(135deg, rgba(249, 115, 22, 0.45), rgba(15, 23, 42, 0.9))',
+      },
+    ],
+  },
+};
+
 const state = {
   token: '',
   creditsBalance: 0,
   savedPrompts: [],
   assets: [],
+  activeDrawer: 'workspace',
+  activeAction: 'image',
+  selectedModel: null,
 };
 
 const $ = (selector) => document.querySelector(selector);
@@ -14,29 +112,67 @@ const createElement = (tag, className, text) => {
   return element;
 };
 
-const setActiveSection = (sectionId) => {
-  $$('.section-panel').forEach((section) => section.classList.add('hidden'));
+const showSection = (sectionId) => {
+  $$('.content-section').forEach((section) => section.classList.add('hidden'));
   $(`#${sectionId}`)?.classList.remove('hidden');
-  $$('.nav-btn').forEach((button) => button.classList.toggle('active', button.dataset.section === sectionId));
+  $$('.drawer-btn').forEach((button) => button.classList.toggle('active', button.dataset.drawer === state.activeDrawer));
+  $$('.topbar-btn').forEach((button) => button.classList.toggle('active', button.dataset.action === state.activeAction));
 };
 
-const setMode = (mode) => {
-  $('#generation-type').value = mode;
-  $$('.mode-btn').forEach((button) => button.classList.toggle('active', button.dataset.mode === mode));
+const setActiveDrawer = (drawer) => {
+  state.activeDrawer = drawer;
+  showSection(drawer);
+};
+
+const updateActionHeader = () => {
+  const current = MODEL_CATALOG[state.activeAction];
+  $('#catalog-kicker').textContent = state.activeAction === 'chat' ? 'AI chat' : `Generate ${state.activeAction}`;
+  $('#catalog-title').textContent = current.title;
+  $('#catalog-description').textContent = current.description;
+};
+
+const renderModelCards = () => {
+  const grid = $('#model-card-grid');
+  const catalog = MODEL_CATALOG[state.activeAction];
+  grid.innerHTML = '';
+  catalog.models.forEach((model) => {
+    const card = createElement('article', 'model-card');
+    card.dataset.modelId = model.id;
+    card.dataset.disabled = String(!model.available);
+
+    const hero = createElement('div', 'model-card-hero');
+    hero.style.backgroundImage = model.hero;
+
+    const body = createElement('div', 'model-card-body');
+    body.appendChild(createElement('span', 'model-card-badge', model.badge));
+    body.appendChild(createElement('h3', 'text-2xl font-semibold', model.name));
+    body.appendChild(createElement('p', 'text-sm uppercase tracking-[0.2em] text-slate-500', model.provider));
+    body.appendChild(createElement('p', 'text-sm leading-6 text-slate-400', model.blurb));
+    body.appendChild(createElement('p', 'text-xs uppercase tracking-[0.24em] text-slate-500', model.meta));
+
+    const action = createElement('button', 'model-card-btn text-sm', model.cta);
+    action.type = 'button';
+    action.dataset.selectModel = model.id;
+    action.disabled = !model.available;
+    body.appendChild(action);
+
+    card.append(hero, body);
+    grid.appendChild(card);
+  });
 };
 
 const renderAssets = () => {
   const grid = $('#asset-grid');
   grid.innerHTML = '';
   state.assets.forEach((asset) => {
-    const card = createElement('article', 'glass rounded-2xl p-3');
+    const card = createElement('article', 'glass rounded-3xl p-4');
     if (asset.outputUrl) {
-      const image = createElement('img', 'mb-3 h-40 w-full rounded-xl object-cover');
+      const image = createElement('img', 'mb-3 h-40 w-full rounded-2xl object-cover');
       image.src = asset.outputUrl;
       image.alt = asset.prompt;
       card.appendChild(image);
     } else {
-      const chatPreview = createElement('div', 'mb-3 flex h-40 w-full items-center justify-center rounded-xl border border-dashed border-white/10 bg-slate-900/60 px-4 text-center text-sm text-slate-300', 'Chat output preview available in transcript/export');
+      const chatPreview = createElement('div', 'mb-3 flex h-40 w-full items-center justify-center rounded-2xl border border-dashed border-white/10 bg-slate-900/60 px-4 text-center text-sm text-slate-300', 'Chat output preview available in transcript/export');
       card.appendChild(chatPreview);
     }
 
@@ -60,7 +196,7 @@ const renderPrompts = (items = state.savedPrompts) => {
   const list = $('#saved-prompts-list');
   list.innerHTML = '';
   items.forEach((item) => {
-    const row = createElement('article', 'glass rounded-2xl p-4');
+    const row = createElement('article', 'glass rounded-3xl p-4');
     const wrapper = createElement('div', 'flex items-start justify-between gap-4');
     const content = createElement('div');
     content.appendChild(createElement('p', 'font-medium', item.title));
@@ -95,6 +231,61 @@ const updatePreview = ({ status, progress = 0, outputUrl }) => {
   }
 };
 
+const resetPreview = () => {
+  $('#preview-image').classList.add('hidden');
+  $('#download-link').classList.add('hidden');
+  $('#share-btn').classList.add('hidden');
+  $('#preview-placeholder').classList.remove('hidden');
+  $('#preview-image').removeAttribute('src');
+  updatePreview({ status: 'idle', progress: 0 });
+};
+
+const populateCreator = (model) => {
+  state.selectedModel = model;
+  $('#generation-type').value = model.type;
+  $('#generation-model').value = model.id;
+  $('#creator-kicker').textContent = `${model.type} creator`;
+  $('#creator-title').textContent = model.name;
+  $('#creator-description').textContent = model.blurb;
+  $('#creator-model-provider').textContent = `${model.provider} · ${model.id}`;
+  $('#creator-model-meta').textContent = model.meta;
+  $('#selected-model-chip').textContent = model.badge;
+  $('#generate-submit').textContent = `Generate with ${model.name}`;
+
+  const sizeSelect = $('#aspect-ratio');
+  sizeSelect.innerHTML = '';
+  (model.sizeOptions || ['auto']).forEach((size) => {
+    const option = createElement('option', '', size);
+    option.value = size;
+    sizeSelect.appendChild(option);
+  });
+
+  $('#catalog-view').classList.add('hidden');
+  $('#creator-view').classList.remove('hidden');
+  resetPreview();
+};
+
+const returnToCatalog = () => {
+  state.selectedModel = null;
+  $('#creator-view').classList.add('hidden');
+  $('#catalog-view').classList.remove('hidden');
+};
+
+const setTopAction = (action) => {
+  state.activeAction = action;
+  if (action === 'pricing') {
+    state.activeDrawer = 'pricing';
+    showSection('pricing');
+    return;
+  }
+
+  state.activeDrawer = 'workspace';
+  updateActionHeader();
+  renderModelCards();
+  returnToCatalog();
+  showSection('workspace');
+};
+
 const connectSocket = () => {
   if (!window.io) return;
   const socket = window.io({ auth: state.token ? { token: state.token } : {} });
@@ -121,17 +312,15 @@ $('#generation-form').addEventListener('submit', async (event) => {
   event.preventDefault();
   updatePreview({ status: 'queued', progress: 12 });
   try {
-    $('#preview-image').classList.add('hidden');
-    $('#download-link').classList.add('hidden');
-    $('#share-btn').classList.add('hidden');
-    $('#preview-placeholder').classList.remove('hidden');
+    resetPreview();
+    updatePreview({ status: 'queued', progress: 12 });
     await api('/api/generate', {
       method: 'POST',
       body: JSON.stringify({
         prompt: $('#prompt').value,
         type: $('#generation-type').value,
+        model: $('#generation-model').value,
         aspectRatio: $('#aspect-ratio').value,
-        stylePreset: $('#style-preset').value,
       }),
     });
   } catch (error) {
@@ -144,7 +333,7 @@ $('#save-prompt-btn').addEventListener('click', async () => {
     const prompt = await api('/api/prompts', {
       method: 'POST',
       body: JSON.stringify({
-        title: `Prompt ${state.savedPrompts.length + 1}`,
+        title: state.selectedModel ? `${state.selectedModel.name} Prompt` : `Prompt ${state.savedPrompts.length + 1}`,
         promptText: $('#prompt').value,
         category: $('#generation-type').value,
         tags: ['favorite'],
@@ -162,21 +351,41 @@ $('#prompt-search').addEventListener('input', (event) => {
   renderPrompts(state.savedPrompts.filter((item) => `${item.title} ${item.promptText}`.toLowerCase().includes(search)));
 });
 
+$('#back-to-models').addEventListener('click', returnToCatalog);
+
 document.addEventListener('click', (event) => {
-  if (event.target.matches('[data-section]')) setActiveSection(event.target.dataset.section);
-  if (event.target.matches('[data-mode]')) setMode(event.target.dataset.mode);
-  if (event.target.matches('[data-use-prompt]')) {
-    const selected = state.savedPrompts.find((item) => item.id === event.target.dataset.usePrompt);
+  const drawerButton = event.target.closest('[data-drawer]');
+  if (drawerButton) {
+    setActiveDrawer(drawerButton.dataset.drawer);
+  }
+
+  const topActionButton = event.target.closest('[data-action]');
+  if (topActionButton) {
+    setTopAction(topActionButton.dataset.action);
+  }
+
+  const modelButton = event.target.closest('[data-select-model]');
+  if (modelButton) {
+    const catalog = MODEL_CATALOG[state.activeAction];
+    const selected = catalog.models.find((model) => model.id === modelButton.dataset.selectModel);
+    if (selected?.available) populateCreator(selected);
+  }
+
+  const usePromptButton = event.target.closest('[data-use-prompt]');
+  if (usePromptButton) {
+    const selected = state.savedPrompts.find((item) => item.id === usePromptButton.dataset.usePrompt);
     if (selected) {
       $('#prompt').value = selected.promptText;
-      setMode(selected.category);
-      setActiveSection('workspace');
+      setTopAction(selected.category);
     }
   }
 });
 
 (() => {
+  updateActionHeader();
+  renderModelCards();
   renderAssets();
   renderPrompts();
   connectSocket();
+  showSection('workspace');
 })();

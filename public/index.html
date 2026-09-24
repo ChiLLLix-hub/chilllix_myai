@@ -8,132 +8,166 @@
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body class="min-h-screen bg-slate-950 text-slate-100">
-    <div class="mx-auto max-w-7xl p-4 md:p-6">
-      <header class="glass mb-6 flex flex-col gap-4 rounded-3xl p-4 md:flex-row md:items-center md:justify-between">
+    <div class="app-shell">
+      <aside class="drawer glass">
         <div>
-          <p class="text-xs uppercase tracking-[0.35em] text-cyan-300">Chilllix</p>
-          <h1 class="text-2xl font-semibold">MyAI Platform</h1>
+          <p class="brand-kicker">Chilllix</p>
+          <h1 class="text-3xl font-semibold">MyAI Platform</h1>
+          <p class="mt-3 text-sm text-slate-400">Model-first generation workspace for images, video, and chat.</p>
         </div>
-        <nav class="flex flex-wrap items-center gap-3 text-sm">
-          <button class="nav-btn active" data-section="workspace">Generate</button>
-          <button class="nav-btn" data-section="library">Library</button>
-          <button class="nav-btn" data-section="prompts">Saved Prompts</button>
-          <button class="nav-btn" data-section="pricing">Buy Credits</button>
-          <button class="nav-btn" data-section="admin">Admin</button>
-        </nav>
-        <div class="flex items-center gap-3">
-          <div class="glass rounded-full px-4 py-2 text-sm">Credits: <span id="credits-balance">0</span></div>
-          <div class="h-10 w-10 rounded-full bg-cyan-400/20"></div>
-        </div>
-      </header>
 
-      <main class="grid gap-6 lg:grid-cols-[1.45fr,0.95fr]">
-        <section id="workspace" class="section-panel space-y-4">
-          <div class="glass rounded-3xl p-5">
-            <div class="mb-4 flex gap-2">
-              <button class="mode-btn active" data-mode="image">Image</button>
-              <button class="mode-btn" data-mode="video">Video</button>
-              <button class="mode-btn" data-mode="chat">AI Chat</button>
-            </div>
-            <form id="generation-form" class="space-y-4">
-              <input type="hidden" id="generation-type" value="image" />
-              <label class="block space-y-2">
-                <span class="text-sm text-slate-300">Prompt</span>
-                <textarea id="prompt" class="input h-36 w-full" placeholder="Describe your scene, motion, or conversation..."></textarea>
-              </label>
-              <div class="grid gap-4 md:grid-cols-2">
-                <label class="block space-y-2">
-                  <span class="text-sm text-slate-300">Aspect Ratio</span>
-                  <select id="aspect-ratio" class="input w-full">
-                    <option>1:1</option>
-                    <option>9:16</option>
-                    <option>16:9</option>
-                    <option>4:5</option>
-                  </select>
-                </label>
-                <label class="block space-y-2">
-                  <span class="text-sm text-slate-300">Style Preset</span>
-                  <select id="style-preset" class="input w-full">
-                    <option>Cinematic</option>
-                    <option>Editorial</option>
-                    <option>Anime</option>
-                    <option>Product Shot</option>
-                  </select>
-                </label>
+        <nav class="drawer-nav">
+          <button class="drawer-btn active" data-drawer="workspace">Workspace</button>
+          <button class="drawer-btn" data-drawer="library">Library</button>
+          <button class="drawer-btn" data-drawer="prompts">Saved Prompts</button>
+          <button class="drawer-btn" data-drawer="admin">Admin</button>
+        </nav>
+
+        <div class="drawer-footer">
+          <div class="glass rounded-3xl p-4">
+            <p class="text-xs uppercase tracking-[0.28em] text-cyan-300">Credits</p>
+            <p class="mt-3 text-3xl font-semibold"><span id="credits-balance">0</span></p>
+            <p class="mt-2 text-sm text-slate-400">Use image, video, and chat models from one dashboard.</p>
+          </div>
+        </div>
+      </aside>
+
+      <main class="content-area">
+        <header class="glass topbar">
+          <div class="topbar-actions">
+            <button class="topbar-btn active" data-action="image">Generate Image</button>
+            <button class="topbar-btn" data-action="video">Generate Video</button>
+            <button class="topbar-btn" data-action="chat">AI Chat</button>
+            <button class="topbar-btn" data-action="pricing">Buy Credits</button>
+          </div>
+          <div class="flex items-center gap-3">
+            <div class="hidden rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-300 md:block">Select a model, then open the creator.</div>
+            <div class="h-11 w-11 rounded-2xl bg-cyan-400/15"></div>
+          </div>
+        </header>
+
+        <section id="workspace" class="content-section">
+          <div id="catalog-view" class="space-y-6">
+            <section class="glass rounded-[2rem] p-6">
+              <div class="mb-5 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+                <div>
+                  <p id="catalog-kicker" class="text-xs uppercase tracking-[0.3em] text-cyan-300">Generate image</p>
+                  <h2 id="catalog-title" class="mt-2 text-2xl font-semibold">Choose a model</h2>
+                  <p id="catalog-description" class="mt-2 text-sm text-slate-400">Open an image model to start a new generation workflow.</p>
+                </div>
+                <div class="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs uppercase tracking-[0.3em] text-slate-400">Model catalog</div>
               </div>
-              <div class="flex flex-wrap gap-3">
-                <button class="primary-btn" type="submit">Generate</button>
-                <button class="secondary-btn" id="save-prompt-btn" type="button">Save Prompt</button>
+              <div id="model-card-grid" class="model-card-grid"></div>
+            </section>
+          </div>
+
+          <div id="creator-view" class="hidden space-y-6">
+            <section class="glass rounded-[2rem] p-6">
+              <div class="mb-5 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                <div>
+                  <button id="back-to-models" class="secondary-btn mb-4" type="button">Back to models</button>
+                  <p id="creator-kicker" class="text-xs uppercase tracking-[0.3em] text-cyan-300">Image creator</p>
+                  <h2 id="creator-title" class="mt-2 text-3xl font-semibold">GPT Image</h2>
+                  <p id="creator-description" class="mt-2 max-w-2xl text-sm text-slate-400"></p>
+                </div>
+                <div id="selected-model-chip" class="selected-model-chip"></div>
               </div>
-            </form>
+
+              <div class="grid gap-6 xl:grid-cols-[1.2fr,0.8fr]">
+                <form id="generation-form" class="space-y-5">
+                  <input type="hidden" id="generation-type" value="image" />
+                  <input type="hidden" id="generation-model" value="" />
+
+                  <label class="block space-y-2">
+                    <span class="text-sm text-slate-300">Prompt</span>
+                    <textarea id="prompt" class="input h-40 w-full" placeholder="Describe the image you want to generate..."></textarea>
+                  </label>
+
+                  <div class="grid gap-4 md:grid-cols-2">
+                    <label class="block space-y-2">
+                      <span class="text-sm text-slate-300">Image size</span>
+                      <select id="aspect-ratio" class="input w-full"></select>
+                    </label>
+                    <div class="rounded-3xl border border-white/10 bg-white/5 p-4">
+                      <p class="text-sm font-medium text-slate-200">Current model</p>
+                      <p id="creator-model-provider" class="mt-2 text-sm text-slate-400"></p>
+                      <p id="creator-model-meta" class="mt-1 text-xs uppercase tracking-[0.24em] text-slate-500"></p>
+                    </div>
+                  </div>
+
+                  <div class="flex flex-wrap gap-3">
+                    <button id="generate-submit" class="primary-btn" type="submit">Generate</button>
+                    <button class="secondary-btn" id="save-prompt-btn" type="button">Save Prompt</button>
+                  </div>
+                </form>
+
+                <section class="glass rounded-[1.75rem] p-5">
+                  <div class="mb-3 flex items-center justify-between">
+                    <h3 class="text-lg font-medium">Live Preview</h3>
+                    <span id="generation-status" class="text-xs uppercase tracking-[0.3em] text-cyan-300">Idle</span>
+                  </div>
+                  <div class="preview-card mb-4">
+                    <div id="skeleton-loader" class="skeleton hidden"></div>
+                    <p id="preview-placeholder" class="text-sm text-slate-400">Queued generations will stream progress here.</p>
+                    <img id="preview-image" class="hidden max-h-80 rounded-2xl object-cover" alt="Generated output" />
+                  </div>
+                  <div class="h-2 overflow-hidden rounded-full bg-slate-800">
+                    <div id="progress-bar" class="h-full w-0 rounded-full bg-cyan-400 transition-all"></div>
+                  </div>
+                  <div class="mt-4 flex gap-3">
+                    <a id="download-link" class="secondary-btn hidden" download>Download</a>
+                    <button id="share-btn" class="secondary-btn hidden" type="button">Share</button>
+                  </div>
+                </section>
+              </div>
+            </section>
           </div>
         </section>
 
-        <aside class="space-y-6">
-          <section class="glass rounded-3xl p-5">
-            <div class="mb-3 flex items-center justify-between">
-              <h2 class="text-lg font-medium">Live Preview</h2>
-              <span id="generation-status" class="text-xs uppercase tracking-[0.3em] text-cyan-300">Idle</span>
-            </div>
-            <div class="preview-card mb-4">
-              <div id="skeleton-loader" class="skeleton hidden"></div>
-              <p id="preview-placeholder" class="text-sm text-slate-400">Queued generations will stream progress here.</p>
-              <img id="preview-image" class="hidden max-h-80 rounded-2xl object-cover" alt="Generated output" />
-            </div>
-            <div class="h-2 overflow-hidden rounded-full bg-slate-800">
-              <div id="progress-bar" class="h-full w-0 rounded-full bg-cyan-400 transition-all"></div>
-            </div>
-            <div class="mt-4 flex gap-3">
-              <a id="download-link" class="secondary-btn hidden" download>Download</a>
-              <button id="share-btn" class="secondary-btn hidden" type="button">Share</button>
-            </div>
-          </section>
+        <section id="library" class="content-section hidden glass rounded-[2rem] p-6">
+          <div class="mb-4 flex items-center justify-between">
+            <h2 class="text-lg font-medium">Library</h2>
+            <span class="text-xs uppercase tracking-[0.3em] text-slate-400">Expires in 7 days</span>
+          </div>
+          <div id="asset-grid" class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3"></div>
+        </section>
 
-          <section id="library" class="section-panel hidden glass rounded-3xl p-5">
-            <div class="mb-4 flex items-center justify-between">
-              <h2 class="text-lg font-medium">My Assets</h2>
-              <span class="text-xs uppercase tracking-[0.3em] text-slate-400">Expires in 7 days</span>
-            </div>
-            <div id="asset-grid" class="grid gap-4 sm:grid-cols-2"></div>
-          </section>
+        <section id="prompts" class="content-section hidden glass rounded-[2rem] p-6">
+          <div class="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <h2 class="text-lg font-medium">Saved Prompts</h2>
+            <input id="prompt-search" class="input w-full md:w-64" placeholder="Search prompts" />
+          </div>
+          <div id="saved-prompts-list" class="space-y-3"></div>
+        </section>
 
-          <section id="prompts" class="section-panel hidden glass rounded-3xl p-5">
-            <div class="mb-4 flex items-center justify-between gap-3">
-              <h2 class="text-lg font-medium">Saved Prompts</h2>
-              <input id="prompt-search" class="input w-48" placeholder="Search prompts" />
-            </div>
-            <div id="saved-prompts-list" class="space-y-3"></div>
-          </section>
+        <section id="pricing" class="content-section hidden glass rounded-[2rem] p-6">
+          <h2 class="mb-4 text-lg font-medium">Pricing & Top-ups</h2>
+          <div class="grid gap-4 md:grid-cols-2">
+            <article class="glass rounded-3xl p-5">
+              <p class="text-sm text-cyan-300">Starter</p>
+              <h3 class="mt-2 text-3xl font-semibold">$19</h3>
+              <p class="mt-2 text-sm text-slate-400">250 credits / month</p>
+              <button class="primary-btn mt-5 w-full">Choose Plan</button>
+            </article>
+            <article class="glass rounded-3xl p-5">
+              <p class="text-sm text-cyan-300">Top-up Pack</p>
+              <h3 class="mt-2 text-3xl font-semibold">$9</h3>
+              <p class="mt-2 text-sm text-slate-400">100 instant credits</p>
+              <button class="primary-btn mt-5 w-full">Buy Credits</button>
+            </article>
+          </div>
+        </section>
 
-          <section id="pricing" class="section-panel hidden glass rounded-3xl p-5">
-            <h2 class="mb-4 text-lg font-medium">Pricing & Top-ups</h2>
-            <div class="grid gap-4 md:grid-cols-2">
-              <article class="glass rounded-2xl p-4">
-                <p class="text-sm text-cyan-300">Starter</p>
-                <h3 class="mt-2 text-2xl font-semibold">$19</h3>
-                <p class="mt-1 text-sm text-slate-400">250 credits / month</p>
-                <button class="primary-btn mt-4 w-full">Choose Plan</button>
-              </article>
-              <article class="glass rounded-2xl p-4">
-                <p class="text-sm text-cyan-300">Top-up Pack</p>
-                <h3 class="mt-2 text-2xl font-semibold">$9</h3>
-                <p class="mt-1 text-sm text-slate-400">100 instant credits</p>
-                <button class="primary-btn mt-4 w-full">Buy Credits</button>
-              </article>
-            </div>
-          </section>
-
-          <section id="admin" class="section-panel hidden glass rounded-3xl p-5">
-            <h2 class="mb-4 text-lg font-medium">Admin Dashboard</h2>
-            <div class="grid gap-3 md:grid-cols-2">
-              <article class="glass rounded-2xl p-4"><p class="text-sm text-slate-400">Active Users</p><p id="admin-users" class="mt-2 text-2xl font-semibold">0</p></article>
-              <article class="glass rounded-2xl p-4"><p class="text-sm text-slate-400">Total Generations</p><p id="admin-generations" class="mt-2 text-2xl font-semibold">0</p></article>
-            </div>
-            <div class="mt-4 rounded-2xl border border-white/10 p-4 text-sm text-slate-300">
-              Configure retention, credit costs, audit review, and user controls through the secured <code>/api/admin</code> endpoints.
-            </div>
-          </section>
-        </aside>
+        <section id="admin" class="content-section hidden glass rounded-[2rem] p-6">
+          <h2 class="mb-4 text-lg font-medium">Admin Dashboard</h2>
+          <div class="grid gap-3 md:grid-cols-2">
+            <article class="glass rounded-3xl p-4"><p class="text-sm text-slate-400">Active Users</p><p id="admin-users" class="mt-2 text-2xl font-semibold">0</p></article>
+            <article class="glass rounded-3xl p-4"><p class="text-sm text-slate-400">Total Generations</p><p id="admin-generations" class="mt-2 text-2xl font-semibold">0</p></article>
+          </div>
+          <div class="mt-4 rounded-3xl border border-white/10 bg-white/5 p-4 text-sm text-slate-300">
+            Configure retention, credit costs, audit review, and user controls through the secured <code>/api/admin</code> endpoints.
+          </div>
+        </section>
       </main>
     </div>
 

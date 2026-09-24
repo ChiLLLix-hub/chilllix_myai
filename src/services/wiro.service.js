@@ -1,7 +1,22 @@
 const env = require('../config/env');
+const { getGenerationModelConfig } = require('./model-catalog.service');
+
+const RUNNING_TASK_STATUSES = new Set([
+  'task_queue',
+  'task_accept',
+  'task_assign',
+  'task_preprocess_start',
+  'task_preprocess_end',
+  'task_start',
+  'task_output',
+]);
+const SUCCESS_TASK_STATUSES = new Set(['task_postprocess_end']);
+const FAILED_TASK_STATUSES = new Set(['task_cancel', 'task_fail', 'task_error']);
+
+const sleep = (delayMs) => new Promise((resolve) => setTimeout(resolve, delayMs));
 
 const fakeGenerationResult = async ({ generationId, type, prompt }) => {
-  await new Promise((resolve) => setTimeout(resolve, 50));
+  await sleep(50);
   if (type === 'chat') {
     return {
       outputUrl: '',
@@ -16,26 +31,163 @@ const fakeGenerationResult = async ({ generationId, type, prompt }) => {
   };
 };
 
-const submitGeneration = async ({ generationId, type, prompt, aspectRatio, stylePreset }) => {
-  if (!env.wiroApiKey) {
-    return fakeGenerationResult({ generationId, type, prompt, aspectRatio, stylePreset });
-  }
-
-  const response = await fetch(`${env.wiroApiBaseUrl.replace(/\/$/, '')}/generations`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: 'Bearer ' + env.wiroApiKey,
-    },
-    body: JSON.stringify({ type, prompt, aspectRatio, stylePreset }),
+const buildMultipartBody = (fields) => {
+  const form = new FormData();
+  Object.entries(fields).forEach(([key, value]) => {
+    if (value === undefined || value === null || value === '') return;
+    form.append(key, String(value));
   });
-
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`Wiro request failed: ${response.status} ${text}`);
-  }
-
-  return response.json();
+  return form;
 };
 
-module.exports = { submitGeneration };
+const getApiBaseUrl = () => env.wiroApiBaseUrl.replace(/\/$/, '');
+
+const getAuthHeaders = () => ({ 'x-api-key': env.wiroApiKey });
+
+const parseJsonResponse = async (response, label) => {
+  const text = await response.text();
+  if (!response.ok) {
+    throw new Error(`${label} failed: ${response.status} ${text}`);
+  }
+  try {
+    return JSON.parse(text);
+  } catch (error) {
+    throw new Error(`${label} returned invalid JSON`);
+  }
+};
+
+const buildImageFields = ({ prompt, aspectRatio }) => ({
+  prompt,
+  size: aspectRatio || 'auto',
+});
+
+const ensureSupportedSize = (modelConfig, aspectRatio) => {
+  const requestedSize = aspectRatio || 'auto';
+  const sizeOptions = modelConfig.fields?.sizeOptions || ['auto'];
+  if (!sizeOptions.includes(requestedSize)) {
+    throw new Error(`Unsupported image size ${requestedSize} for ${modelConfig.id}`);
+  }
+  return requestedSize;
+};
+
+const submitAsyncRun = async ({ model, fields, fetchImpl = fetch }) => {
+  const response = await fetchImpl(`${getApiBaseUrl()}/Run/${model}`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: buildMultipartBody(fields),
+  });
+  const payload = await parseJsonResponse(response, `Wiro Run ${model}`);
+  if (Array.isArray(payload.errors) && payload.errors.length) {
+    throw new Error(`Wiro Run ${model} failed: ${payload.errors[0].message || payload.errors[0]}`);
+  }
+  if (!payload.taskid) {
+    throw new Error(`Wiro Run ${model} did not return a task id`);
+  }
+  return payload;
+};
+
+const submitSyncRun = async ({ model, fields, stream = false, fetchImpl = fetch }) => {
+  const streamQuery = stream ? '?stream=true' : '';
+  const response = await fetchImpl(`${getApiBaseUrl()}/Run/${model}/sync${streamQuery}`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: buildMultipartBody(fields),
+  });
+
+  if (stream) return response;
+  return parseJsonResponse(response, `Wiro Sync Run ${model}`);
+};
+
+const extractTask = (payload) => {
+  const task = Array.isArray(payload?.tasklist) ? payload.tasklist[0] : null;
+  if (!task) {
+    throw new Error('Wiro Task Detail did not return a task');
+  }
+  return task;
+};
+
+const extractOutputUrl = (task) => {
+  const outputs = Array.isArray(task.outputs) ? task.outputs : [];
+  const output = outputs.find((item) => typeof item?.url === 'string' && item.url);
+  if (!output) {
+    throw new Error('Wiro task completed without an output URL');
+  }
+  return output.url;
+};
+
+const pollTaskDetail = async ({ taskId, fetchImpl = fetch, pollIntervalMs = 2500, maxAttempts = 120 }) => {
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    const response = await fetchImpl(`${getApiBaseUrl()}/Task/Detail`, {
+      method: 'POST',
+      headers: {
+        ...getAuthHeaders(),
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ taskid: taskId }),
+    });
+    const payload = await parseJsonResponse(response, `Wiro Task Detail ${taskId}`);
+    if (Array.isArray(payload.errors) && payload.errors.length) {
+      throw new Error(`Wiro Task Detail ${taskId} failed: ${payload.errors[0].message || payload.errors[0]}`);
+    }
+
+    const task = extractTask(payload);
+    if (SUCCESS_TASK_STATUSES.has(task.status)) {
+      return task;
+    }
+    if (FAILED_TASK_STATUSES.has(task.status)) {
+      throw new Error(task.debugerror || `Wiro task failed with status ${task.status}`);
+    }
+    if (!RUNNING_TASK_STATUSES.has(task.status)) {
+      throw new Error(`Wiro task returned unknown status ${task.status}`);
+    }
+    await sleep(pollIntervalMs);
+  }
+
+  throw new Error(`Wiro task ${taskId} timed out`);
+};
+
+const submitImageGeneration = async ({ model, prompt, aspectRatio }, options = {}) => {
+  const modelConfig = getGenerationModelConfig('image', model);
+  if (!modelConfig) {
+    throw new Error('Unsupported image model');
+  }
+
+  const size = ensureSupportedSize(modelConfig, aspectRatio);
+  const fields = buildImageFields({ prompt, aspectRatio: size });
+  const run = await submitAsyncRun({ model, fields, fetchImpl: options.fetchImpl });
+  const task = await pollTaskDetail({ taskId: run.taskid, fetchImpl: options.fetchImpl, pollIntervalMs: options.pollIntervalMs, maxAttempts: options.maxAttempts });
+
+  return {
+    outputUrl: extractOutputUrl(task),
+    storageKey: '',
+    taskId: run.taskid,
+  };
+};
+
+const submitGeneration = async ({ generationId, type, model, prompt, aspectRatio }, options = {}) => {
+  if (!env.wiroApiKey) {
+    return fakeGenerationResult({ generationId, type, prompt, aspectRatio });
+  }
+
+  if (type === 'image') {
+    return submitImageGeneration({ model, prompt, aspectRatio }, options);
+  }
+
+  return fakeGenerationResult({ generationId, type, prompt, aspectRatio });
+};
+
+module.exports = {
+  RUNNING_TASK_STATUSES,
+  SUCCESS_TASK_STATUSES,
+  FAILED_TASK_STATUSES,
+  fakeGenerationResult,
+  buildImageFields,
+  ensureSupportedSize,
+  submitAsyncRun,
+  submitSyncRun,
+  extractTask,
+  extractOutputUrl,
+  pollTaskDetail,
+  submitImageGeneration,
+  submitGeneration,
+};

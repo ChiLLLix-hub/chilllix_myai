@@ -16,8 +16,8 @@ router.post('/', generationRateLimiter, auditAction('generation.create'), valida
   body: z.object({
     prompt: z.string().min(5).max(4000).transform(cleanString),
     type: z.enum(['image', 'video', 'chat']),
-    aspectRatio: z.string().min(3).max(20).default('1:1').transform(cleanString),
-    stylePreset: z.string().min(2).max(60).default('cinematic').transform(cleanString),
+    model: z.string().min(3).max(120).optional().transform((value) => value ? cleanString(value) : undefined),
+    aspectRatio: z.string().min(2).max(20).default('auto').transform(cleanString),
   }),
   query: z.object({}).passthrough(),
   params: z.object({}).passthrough(),
