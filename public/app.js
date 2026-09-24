@@ -112,7 +112,7 @@ const api = async (path, options = {}) => {
   if (!(options.body instanceof FormData) && !headers['Content-Type']) {
     headers['Content-Type'] = 'application/json';
   }
-  const response = await fetch(path, { credentials: 'same-origin', ...options, headers });
+  const response = await fetch(path, { credentials: 'include', ...options, headers });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
     const error = new Error(payload.error || 'Request failed');

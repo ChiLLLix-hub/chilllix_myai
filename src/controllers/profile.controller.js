@@ -3,6 +3,16 @@ const { User, UserLog, SavedPrompt, Generation, Transaction } = require('../mode
 const { getSettingsMap } = require('../services/settings.service');
 const { HttpError } = require('../utils/http-error');
 
+const maskIpAddress = (ipAddress = '') => {
+  if (!ipAddress) return '';
+  if (ipAddress.includes(':')) {
+    const segments = ipAddress.split(':');
+    return `${segments.slice(0, -1).join(':')}:****`;
+  }
+  const segments = ipAddress.split('.');
+  return segments.length === 4 ? `${segments[0]}.${segments[1]}.${segments[2]}.***` : ipAddress;
+};
+
 const serializeProfile = (user, settings) => ({
   id: user.id,
   email: user.email,
@@ -60,7 +70,7 @@ const getDashboard = async (req, res) => {
       failedLoginAttempts: user.failedLoginAttempts,
       lockedUntil: user.lockedUntil,
       lastLoginAt: user.lastLoginAt,
-      lastLoginIp: user.lastLoginIp,
+      lastLoginIp: maskIpAddress(user.lastLoginIp),
       lastLoginLatitude: user.lastLoginLatitude,
       lastLoginLongitude: user.lastLoginLongitude,
     },

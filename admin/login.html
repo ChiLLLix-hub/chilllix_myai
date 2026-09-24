@@ -45,13 +45,13 @@
           const location = await getClientLocation();
           const response = await fetch('/api/auth/login', {
             method: 'POST',
-            credentials: 'same-origin',
+            credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email: document.getElementById('login-email').value.trim(), password: document.getElementById('login-password').value, location }),
           });
           const payload = await response.json().catch(() => ({}));
           if (!response.ok) throw new Error(payload.error || 'Request failed');
-          const profileResponse = await fetch('/api/profile', { credentials: 'same-origin' });
+          const profileResponse = await fetch('/api/profile', { credentials: 'include' });
           const profile = await profileResponse.json();
           if (profile.role !== 'admin') throw new Error('Admin access required');
           window.location.href = '/admin';

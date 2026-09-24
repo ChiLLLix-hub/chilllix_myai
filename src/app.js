@@ -11,6 +11,7 @@ const transactionRoutes = require('./routes/transaction.routes');
 const adminRoutes = require('./routes/admin.routes');
 const { requireAuth, requireRole } = require('./middleware/auth.middleware');
 const { generalKnownApiRateLimiter, generalApiRedisRateLimiter, pageRateLimiter } = require('./middleware/rate-limit.middleware');
+const { enforceCsrf } = require('./middleware/csrf.middleware');
 const { auditLogger } = require('./middleware/audit.middleware');
 const { errorHandler, notFoundHandler } = require('./middleware/error.middleware');
 
@@ -27,6 +28,7 @@ app.get('/health', pageRateLimiter, (_req, res) => {
 
 app.use('/api', generalKnownApiRateLimiter);
 app.use('/api', generalApiRedisRateLimiter);
+app.use('/api', enforceCsrf);
 app.use('/api/auth', authRoutes);
 app.use('/api/profile', profileRoutes);
 app.use('/api/prompts', promptRoutes);
@@ -45,7 +47,7 @@ app.get(/^\/admin(?:\/.*)?$/, requireAuth, requireRole('admin'), (_req, res) => 
   res.sendFile(path.join(__dirname, '..', 'admin', 'index.html'));
 });
 app.use(express.static(path.join(__dirname, '..', 'public')));
-app.get(/^\/(?!api(?:\/|$)).*/, (_req, res) => {
+app.get(/^\/(?!api(?:\/|$)|admin-assets(?:\/|$)).*/, (_req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
 });
 app.use(notFoundHandler);
