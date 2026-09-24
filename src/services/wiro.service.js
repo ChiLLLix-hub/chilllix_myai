@@ -164,6 +164,19 @@ const submitImageGeneration = async ({ model, prompt, aspectRatio }, options = {
   };
 };
 
+const submitLegacyGeneration = async ({ type, prompt, aspectRatio, fetchImpl = fetch }) => {
+  const response = await fetchImpl(`${getApiBaseUrl()}/generations`, {
+    method: 'POST',
+    headers: {
+      ...getAuthHeaders(),
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ type, prompt, aspectRatio }),
+  });
+
+  return parseJsonResponse(response, 'Wiro legacy generations');
+};
+
 const submitGeneration = async ({ generationId, type, model, prompt, aspectRatio }, options = {}) => {
   if (!env.wiroApiKey) {
     return fakeGenerationResult({ generationId, type, prompt, aspectRatio });
@@ -173,7 +186,7 @@ const submitGeneration = async ({ generationId, type, model, prompt, aspectRatio
     return submitImageGeneration({ model, prompt, aspectRatio }, options);
   }
 
-  return fakeGenerationResult({ generationId, type, prompt, aspectRatio });
+  return submitLegacyGeneration({ type, prompt, aspectRatio, fetchImpl: options.fetchImpl });
 };
 
 module.exports = {
@@ -189,5 +202,6 @@ module.exports = {
   extractOutputUrl,
   pollTaskDetail,
   submitImageGeneration,
+  submitLegacyGeneration,
   submitGeneration,
 };

@@ -100,6 +100,7 @@ const state = {
   assets: [],
   activeDrawer: 'workspace',
   activeAction: 'image',
+  workspaceAction: 'image',
   selectedModel: null,
 };
 
@@ -136,6 +137,7 @@ const showSection = (sectionId) => {
 
 const setActiveDrawer = (drawer) => {
   state.activeDrawer = drawer;
+  state.activeAction = drawer === 'workspace' ? state.workspaceAction : null;
   showSection(drawer);
 };
 
@@ -296,6 +298,7 @@ const setTopAction = (action) => {
     return;
   }
 
+  state.workspaceAction = action;
   state.activeDrawer = 'workspace';
   updateActionHeader();
   renderModelCards();
