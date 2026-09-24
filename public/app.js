@@ -819,7 +819,15 @@ $('#admin-user-list').addEventListener('submit', async (event) => {
     renderAdminUsers();
     showAdminFeedback(`Updated ${updated.email}.`);
 
-    if (state.user?.id === updated.id) {
+    const updatedCurrentUser = state.user?.id === updated.id;
+    if (updatedCurrentUser && updated.role !== 'admin') {
+      syncProfile(updated);
+      await setActiveDrawer('workspace');
+      showAdminFeedback(`Updated ${updated.email}. Admin access removed for this account.`);
+      return;
+    }
+
+    if (updatedCurrentUser) {
       syncProfile(updated);
       await loadAdminView();
     }
