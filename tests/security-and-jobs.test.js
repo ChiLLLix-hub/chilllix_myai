@@ -175,6 +175,24 @@ test('submitImageGeneration falls back to the default image model when omitted',
   assert.equal(calls[0].url.endsWith('/Run/openai/gpt-image-2-5-flare'), true);
 });
 
+test('submitImageGeneration rejects unsupported image models before calling Wiro', async () => {
+  let called = false;
+  await assert.rejects(
+    () => submitImageGeneration({
+      model: 'openai/not-real',
+      prompt: 'invalid',
+      aspectRatio: '1:1',
+    }, {
+      fetchImpl: async () => {
+        called = true;
+        throw new Error('should not be called');
+      },
+    }),
+    /Unsupported image model/,
+  );
+  assert.equal(called, false);
+});
+
 test('pollTaskDetail keeps polling until the task completes', async () => {
   const calls = [];
   const responses = [

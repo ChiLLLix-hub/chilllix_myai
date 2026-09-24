@@ -95,6 +95,7 @@ const MODEL_CATALOG = {
 
 const IMPLEMENTED_CREATOR_TYPES = new Set(['image']);
 const STORAGE_KEYS = Object.freeze({ token: 'chilllix.token' });
+const DEFAULT_CREDIT_COSTS = Object.freeze({ image: 10, video: 35, chat: 3 });
 
 let socketInstance = null;
 
@@ -102,6 +103,7 @@ const state = {
   token: '',
   user: null,
   creditsBalance: 0,
+  creditCosts: { ...DEFAULT_CREDIT_COSTS },
   savedPrompts: [],
   assets: [],
   adminUsers: [],
@@ -183,6 +185,7 @@ const clearSession = ({ showAuth = true } = {}) => {
   state.token = '';
   state.user = null;
   state.creditsBalance = 0;
+  state.creditCosts = { ...DEFAULT_CREDIT_COSTS };
   state.savedPrompts = [];
   state.assets = [];
   state.adminUsers = [];
@@ -210,6 +213,7 @@ const applyAuthPayload = (payload) => {
 const syncProfile = (profile) => {
   state.user = profile;
   state.creditsBalance = profile.creditsBalance || 0;
+  state.creditCosts = { ...DEFAULT_CREDIT_COSTS, ...(profile.creditCosts || {}) };
   updateSessionUI();
   if (state.user?.role !== 'admin' && state.activeDrawer === 'admin') {
     setActiveDrawer('workspace');
@@ -477,7 +481,8 @@ const populateCreator = (model) => {
     sizeSelect.appendChild(option);
   });
 
-  updateCreditWarning(state.creditsBalance <= 0 ? 'Your balance is low. Add credits before starting a new generation.' : '');
+  const requiredCredits = state.creditCosts[model.type] || 0;
+  updateCreditWarning(state.creditsBalance < requiredCredits ? `This ${model.type} generation needs ${requiredCredits} credits. Add more credits before starting.` : '');
   $('#catalog-view').classList.add('hidden');
   $('#creator-view').classList.remove('hidden');
   resetPreview();
@@ -626,7 +631,7 @@ $('#signin-form').addEventListener('submit', async (event) => {
       }),
     });
     applyAuthPayload(payload);
-    await Promise.all([loadPrompts(), loadGenerations()]);
+    await Promise.all([loadProfile(), loadPrompts(), loadGenerations()]);
     setTopAction('image');
     $('#signin-form').reset();
   } catch (error) {
@@ -650,7 +655,7 @@ $('#signup-form').addEventListener('submit', async (event) => {
       }),
     });
     applyAuthPayload(payload);
-    await Promise.all([loadPrompts(), loadGenerations()]);
+    await Promise.all([loadProfile(), loadPrompts(), loadGenerations()]);
     setTopAction('image');
     $('#signup-form').reset();
   } catch (error) {
@@ -685,8 +690,9 @@ $('#generation-form').addEventListener('submit', async (event) => {
     showAuthFeedback('Please sign in to generate content.');
     return;
   }
-  if (state.creditsBalance <= 0) {
-    redirectToPricingForCredits('You do not have enough credits. Please add credits before generating.');
+  const requiredCredits = state.creditCosts[$('#generation-type').value] || 0;
+  if (state.creditsBalance < requiredCredits) {
+    redirectToPricingForCredits(`You need ${requiredCredits} credits for this generation. Please add credits before generating.`);
     return;
   }
 
@@ -707,7 +713,7 @@ $('#generation-form').addEventListener('submit', async (event) => {
     updateCreditWarning('');
   } catch (error) {
     if (error.status === 402 || /insufficient credits/i.test(error.message)) {
-      redirectToPricingForCredits('You do not have enough credits. Please add credits before generating.');
+      redirectToPricingForCredits(`You need ${requiredCredits} credits for this generation. Please add credits before generating.`);
       updatePreview({ status: 'insufficient credits', progress: 0 });
       return;
     }

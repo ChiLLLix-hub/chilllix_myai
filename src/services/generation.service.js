@@ -34,11 +34,11 @@ const queueGenerationRequest = async ({ userId, prompt, type, model, aspectRatio
   const settings = await getSettingsMap();
   const costs = resolveGenerationCosts(settings);
   const costCredits = costs[type];
-  const selectedModel = resolveRequestedModel({ type, model });
 
   if (!costCredits) {
     throw new HttpError(400, 'Unsupported generation type');
   }
+  const selectedModel = type === 'image' ? resolveRequestedModel({ type, model }) : undefined;
 
   if (!User || !Generation || !sequelize) {
     throw new HttpError(503, 'Database is not configured');
