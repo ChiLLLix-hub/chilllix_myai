@@ -14,7 +14,7 @@ const buildSslConfig = (connectionString, nodeEnv = process.env.NODE_ENV || 'dev
       return { rejectUnauthorized: false };
     }
     if (['verify-ca', 'verify-full'].includes(sslMode)) {
-      return {};
+      throw new Error(`Unsupported sslmode "${sslMode}" for db:migrate; use sslmode=require or provide a connection string without strict certificate verification modes`);
     }
 
     if (['localhost', '127.0.0.1'].includes(parsedUrl.hostname)) {

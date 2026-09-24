@@ -150,8 +150,11 @@ test('refundFailedGeneration does not refund again for already failed generation
 test('buildSslConfig keeps SSL disabled for localhost and configures remote production databases safely', () => {
   assert.equal(buildSslConfig('postgres://localhost:5432/app?sslmode=disable', 'production'), false);
   assert.deepEqual(buildSslConfig('postgres://db.example.com:5432/app?sslmode=require', 'production'), { rejectUnauthorized: false });
-  assert.deepEqual(buildSslConfig('postgres://db.example.com:5432/app?sslmode=verify-full', 'production'), {});
   assert.deepEqual(buildSslConfig('postgres://db.example.com:5432/app', 'production'), { rejectUnauthorized: false });
+  assert.throws(
+    () => buildSslConfig('postgres://db.example.com:5432/app?sslmode=verify-full', 'production'),
+    /Unsupported sslmode "verify-full"/,
+  );
 });
 
 test('runMigration rejects when DATABASE_URL is missing', async () => {
