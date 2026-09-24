@@ -10,18 +10,21 @@ const buildSslConfig = (connectionString, nodeEnv = process.env.NODE_ENV || 'dev
     const sslMode = parsedUrl.searchParams.get('sslmode');
 
     if (sslMode === 'disable') return false;
-    if (['require', 'verify-ca', 'verify-full'].includes(sslMode)) {
-      return true;
+    if (sslMode === 'require') {
+      return { rejectUnauthorized: false };
+    }
+    if (['verify-ca', 'verify-full'].includes(sslMode)) {
+      return {};
     }
 
     if (['localhost', '127.0.0.1'].includes(parsedUrl.hostname)) {
       return false;
     }
   } catch (error) {
-    return nodeEnv === 'production';
+    return nodeEnv === 'production' ? { rejectUnauthorized: false } : false;
   }
 
-  return nodeEnv === 'production';
+  return nodeEnv === 'production' ? { rejectUnauthorized: false } : false;
 };
 
 const runMigration = async ({

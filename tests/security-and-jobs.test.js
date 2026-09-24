@@ -147,10 +147,11 @@ test('refundFailedGeneration does not refund again for already failed generation
   assert.equal(transaction.rolledBack, true);
 });
 
-test('buildSslConfig keeps SSL disabled for localhost and enabled for remote production databases', () => {
+test('buildSslConfig keeps SSL disabled for localhost and configures remote production databases safely', () => {
   assert.equal(buildSslConfig('postgres://localhost:5432/app?sslmode=disable', 'production'), false);
-  assert.equal(buildSslConfig('postgres://db.example.com:5432/app?sslmode=require', 'production'), true);
-  assert.equal(buildSslConfig('postgres://db.example.com:5432/app', 'production'), true);
+  assert.deepEqual(buildSslConfig('postgres://db.example.com:5432/app?sslmode=require', 'production'), { rejectUnauthorized: false });
+  assert.deepEqual(buildSslConfig('postgres://db.example.com:5432/app?sslmode=verify-full', 'production'), {});
+  assert.deepEqual(buildSslConfig('postgres://db.example.com:5432/app', 'production'), { rejectUnauthorized: false });
 });
 
 test('runMigration rejects when DATABASE_URL is missing', async () => {
@@ -178,7 +179,7 @@ test('runMigration reads the SQL file and executes it with the configured client
   });
 
   assert.equal(clientConfig.connectionString, 'postgres://db.example.com:5432/app?sslmode=require');
-  assert.equal(clientConfig.ssl, true);
+  assert.deepEqual(clientConfig.ssl, { rejectUnauthorized: false });
   assert.deepEqual(events, [
     'connect',
     ['log', 'Connected to PostgreSQL'],
