@@ -12,9 +12,12 @@ const start = async () => {
   if (sequelize) {
     try {
       await sequelize.authenticate();
+      console.log('Database connection verified');
     } catch (error) {
       console.error('Database connection failed', error.message);
     }
+  } else {
+    console.warn('DATABASE_URL is not configured; database features are disabled');
   }
 
   registerProcessor(processGenerationJob);

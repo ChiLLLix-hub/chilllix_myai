@@ -7,7 +7,8 @@
     "test": "node --test",
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
-    "db:verify": "node src/scripts/verify-config.js"
+    "db:verify": "node src/scripts/verify-config.js",
+    "db:migrate": "node src/scripts/run-migration.js"
   },
   "repository": {
     "type": "git",
