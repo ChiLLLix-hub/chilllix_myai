@@ -70,11 +70,12 @@ npm start
 7. Run the database migration before the first production boot:
 
    ```bash
+   export DATABASE_URL="your-railway-postgres-connection-string"
    npm install
    npm run db:migrate
    ```
 
-   This applies `database/migrations/001_init.sql` to the database in `DATABASE_URL`.
+   This applies `database/migrations/001_init.sql` to the PostgreSQL database referenced by `DATABASE_URL`.
 
 8. Verify production config locally if needed:
 

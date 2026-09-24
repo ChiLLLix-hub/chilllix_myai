@@ -187,3 +187,33 @@ test('runMigration reads the SQL file and executes it with the configured client
     'end',
   ]);
 });
+
+test('runMigration preserves the original migration error if cleanup also fails', async () => {
+  const events = [];
+
+  await assert.rejects(
+    () => runMigration({
+      databaseUrl: 'postgres://db.example.com:5432/app?sslmode=require',
+      nodeEnv: 'production',
+      readFile: async () => 'SELECT 1;',
+      clientFactory: () => ({
+        connect: async () => events.push('connect'),
+        query: async () => {
+          throw new Error('query failed');
+        },
+        end: async () => {
+          throw new Error('end failed');
+        },
+      }),
+      log: (message) => events.push(['log', message]),
+      errorLog: (...args) => events.push(['error', ...args]),
+    }),
+    /query failed/,
+  );
+
+  assert.deepEqual(events, [
+    'connect',
+    ['log', 'Connected to PostgreSQL'],
+    ['error', 'Migration cleanup failed', 'end failed'],
+  ]);
+});
