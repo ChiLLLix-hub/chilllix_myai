@@ -53,12 +53,24 @@ const DEFAULT_CREDIT_COSTS = Object.freeze({ image: 10, video: 35, chat: 3 });
 const IMPLEMENTED_CREATOR_TYPES = new Set(['image']);
 const apiBaseMeta = document.querySelector('meta[name="chilllix-api-base"]')?.getAttribute('content') || '';
 const apiBaseWindow = typeof window.CHILLLIX_API_BASE_URL === 'string' ? window.CHILLLIX_API_BASE_URL : '';
-const normalizedApiBase = (apiBaseWindow || apiBaseMeta).trim().replace(/\/+$/, '');
-const apiOrigin = normalizedApiBase.replace(/\/api$/, '');
+const apiBase = (apiBaseWindow || apiBaseMeta).trim().replace(/\/+$/, '');
+const apiSocketOrigin = (() => {
+  if (!apiBase) return '';
+  try {
+    const parsed = new URL(apiBase, window.location.origin);
+    return `${parsed.protocol}//${parsed.host}`;
+  } catch (_error) {
+    return '';
+  }
+})();
 const resolveApiUrl = (path) => {
   if (/^https?:\/\//i.test(path)) return path;
-  if (!apiOrigin) return path;
-  return `${apiOrigin}${path.startsWith('/') ? path : `/${path}`}`;
+  if (!apiBase) return path;
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+  if (/\/api$/i.test(apiBase) && normalizedPath.startsWith('/api/')) {
+    return `${apiBase}${normalizedPath.slice(4)}`;
+  }
+  return `${apiBase}${normalizedPath}`;
 };
 
 let socketInstance = null;
@@ -205,7 +217,7 @@ const syncProfile = (profile) => {
 const connectSocket = () => {
   if (!window.io || !state.user) return;
   socketInstance?.disconnect();
-  socketInstance = window.io(apiOrigin || undefined, { withCredentials: true });
+  socketInstance = window.io(apiSocketOrigin || undefined, { withCredentials: true });
   socketInstance.on('generation:update', async (payload) => {
     updatePreview(payload);
     if (['completed', 'failed'].includes(payload.status)) {

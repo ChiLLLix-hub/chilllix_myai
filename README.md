@@ -129,6 +129,8 @@ If your hosting plan does not allow vhost proxy rules, point `api.agromar.com.my
   <meta name="chilllix-api-base" content="https://api.agromar.com.my" />
   ```
 
+  You can set either an origin (`https://api.agromar.com.my`) or an origin plus `/api` (`https://api.agromar.com.my/api`).
+
 You can also set `window.CHILLLIX_API_BASE_URL` before loading `/public/app.js`; this takes priority over the meta tag.
 
 ## `.env` Placement
