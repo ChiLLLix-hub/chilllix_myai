@@ -66,7 +66,7 @@ npm start
    - `JWT_SECRET`
    - `DATABASE_URL`
    - `REDIS_URL`
-6. Add the rest of the variables from `/home/runner/work/chilllix_myai/chilllix_myai/.env.example` if you use Wiro or S3 features.
+6. Add the rest of the variables from `.env.example` if you use Wiro or S3 features.
 7. Run the database migration before the first production boot:
 
    ```bash
@@ -74,7 +74,7 @@ npm start
    npm run db:migrate
    ```
 
-   This applies `/home/runner/work/chilllix_myai/chilllix_myai/database/migrations/001_init.sql` to the database in `DATABASE_URL`.
+   This applies `database/migrations/001_init.sql` to the database in `DATABASE_URL`.
 
 8. Verify production config locally if needed:
 

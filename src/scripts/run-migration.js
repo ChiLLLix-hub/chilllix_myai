@@ -2,53 +2,60 @@ const fs = require('fs/promises');
 const path = require('path');
 const { Client } = require('pg');
 
-const databaseUrl = process.env.DATABASE_URL || '';
-const nodeEnv = process.env.NODE_ENV || 'development';
 const migrationPath = path.resolve(__dirname, '../../database/migrations/001_init.sql');
 
-const buildSslConfig = (connectionString) => {
+const buildSslConfig = (connectionString, nodeEnv = process.env.NODE_ENV || 'development') => {
   try {
     const parsedUrl = new URL(connectionString);
     const sslMode = parsedUrl.searchParams.get('sslmode');
 
     if (sslMode === 'disable') return false;
     if (['require', 'verify-ca', 'verify-full'].includes(sslMode)) {
-      return { rejectUnauthorized: false };
+      return true;
     }
 
     if (['localhost', '127.0.0.1'].includes(parsedUrl.hostname)) {
       return false;
     }
   } catch (error) {
-    return nodeEnv === 'production' ? { rejectUnauthorized: false } : false;
+    return nodeEnv === 'production';
   }
 
-  return nodeEnv === 'production' ? { rejectUnauthorized: false } : false;
+  return nodeEnv === 'production';
 };
 
-const run = async () => {
+const runMigration = async ({
+  databaseUrl = process.env.DATABASE_URL || '',
+  nodeEnv = process.env.NODE_ENV || 'development',
+  clientFactory = (config) => new Client(config),
+  readFile = fs.readFile,
+  log = console.log,
+} = {}) => {
   if (!databaseUrl) {
-    console.error('DATABASE_URL must be set before running the migration');
-    process.exit(1);
+    throw new Error('DATABASE_URL must be set before running the migration');
   }
 
-  const sql = await fs.readFile(migrationPath, 'utf8');
-  const client = new Client({
+  const sql = await readFile(migrationPath, 'utf8');
+  const client = clientFactory({
     connectionString: databaseUrl,
-    ssl: buildSslConfig(databaseUrl),
+    ssl: buildSslConfig(databaseUrl, nodeEnv),
   });
 
   try {
     await client.connect();
-    console.log('Connected to PostgreSQL');
+    log('Connected to PostgreSQL');
     await client.query(sql);
-    console.log('Migration applied successfully');
-  } catch (error) {
-    console.error('Migration failed', error.message);
-    process.exitCode = 1;
+    log('Migration applied successfully');
   } finally {
     await client.end().catch(() => {});
   }
 };
 
-run();
+if (require.main === module) {
+  runMigration().catch((error) => {
+    console.error('Migration failed', error.message);
+    process.exit(1);
+  });
+}
+
+module.exports = { buildSslConfig, runMigration };
