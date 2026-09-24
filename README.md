@@ -126,12 +126,16 @@ If your hosting plan does not allow vhost proxy rules, point `api.agromar.com.my
 - Edit `/public/index.html` and set:
 
   ```html
-  <meta name="chilllix-api-base" content="https://api.agromar.com.my" />
+  <meta name="myai-api-base" content="https://api.agromar.com.my" />
   ```
 
   You can set either an origin (`https://api.agromar.com.my`) or an origin plus `/api` (`https://api.agromar.com.my/api`).
 
-You can also set `window.CHILLLIX_API_BASE_URL` before loading `/public/app.js`; this takes priority over the meta tag.
+You can also set `window.MYAI_API_BASE_URL` before loading `/public/app.js`; this takes priority over the meta tag (`window.CHILLLIX_API_BASE_URL` remains supported for backward compatibility).
+
+`FRONTEND_ORIGIN` remains your SPA URL (`https://agromar.com.my`) in both modes:
+- Reverse-proxy mode: API stays under the same origin via `/api`.
+- Direct-subdomain mode: browser calls `https://api...`, but backend CORS/CSRF must still trust the frontend origin (`https://agromar.com.my`).
 
 ## `.env` Placement
 

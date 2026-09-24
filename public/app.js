@@ -51,8 +51,10 @@ const MODEL_CATALOG = {
 
 const DEFAULT_CREDIT_COSTS = Object.freeze({ image: 10, video: 35, chat: 3 });
 const IMPLEMENTED_CREATOR_TYPES = new Set(['image']);
-const apiBaseMeta = document.querySelector('meta[name="chilllix-api-base"]')?.getAttribute('content') || '';
-const apiBaseWindow = typeof window.CHILLLIX_API_BASE_URL === 'string' ? window.CHILLLIX_API_BASE_URL : '';
+const apiBaseMeta = document.querySelector('meta[name="myai-api-base"]')?.getAttribute('content') || '';
+const apiBaseWindow = typeof window.MYAI_API_BASE_URL === 'string'
+  ? window.MYAI_API_BASE_URL
+  : (typeof window.CHILLLIX_API_BASE_URL === 'string' ? window.CHILLLIX_API_BASE_URL : '');
 const apiBase = (apiBaseWindow || apiBaseMeta).trim().replace(/\/+$/, '');
 const apiSocketOrigin = (() => {
   if (!apiBase) return '';
