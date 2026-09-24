@@ -114,6 +114,11 @@ const createElement = (tag, className, text) => {
   return element;
 };
 
+const focusFirstCatalogAction = () => {
+  const firstAction = document.querySelector('[data-select-model]:not([disabled])');
+  firstAction?.focus();
+};
+
 const showSection = (sectionId) => {
   $$('.content-section').forEach((section) => section.classList.add('hidden'));
   $(`#${sectionId}`)?.classList.remove('hidden');
@@ -273,12 +278,14 @@ const populateCreator = (model) => {
   $('#catalog-view').classList.add('hidden');
   $('#creator-view').classList.remove('hidden');
   resetPreview();
+  $('#prompt').focus();
 };
 
 const returnToCatalog = () => {
   state.selectedModel = null;
   $('#creator-view').classList.add('hidden');
   $('#catalog-view').classList.remove('hidden');
+  focusFirstCatalogAction();
 };
 
 const setTopAction = (action) => {

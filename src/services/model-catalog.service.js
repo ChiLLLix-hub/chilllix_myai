@@ -31,7 +31,7 @@ const SUPPORTED_MODELS_BY_TYPE = Object.freeze({
 
 const getGenerationModelConfig = (type, model) => SUPPORTED_MODELS_BY_TYPE[type]?.[model] || null;
 
-const assertSupportedGenerationModel = (type, model) => {
+const lookupSupportedGenerationModel = (type, model) => {
   if (type !== 'image') return null;
   return getGenerationModelConfig(type, model);
 };
@@ -40,5 +40,5 @@ module.exports = {
   IMAGE_MODEL_CONFIGS,
   SUPPORTED_MODELS_BY_TYPE,
   getGenerationModelConfig,
-  assertSupportedGenerationModel,
+  lookupSupportedGenerationModel,
 };
