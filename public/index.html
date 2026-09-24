@@ -21,12 +21,12 @@
           </div>
         </div>
         <div class="glass rounded-[2rem] p-6">
-          <div class="auth-tabs" role="group" aria-label="Authentication mode">
-            <button type="button" class="topbar-btn active" data-auth-tab="signin" aria-pressed="true">Sign In</button>
-            <button type="button" class="topbar-btn" data-auth-tab="signup" aria-pressed="false">Sign Up</button>
+          <div class="auth-tabs" role="tablist" aria-label="Authentication mode">
+            <button id="signin-tab" type="button" class="topbar-btn active" data-auth-tab="signin" role="tab" aria-selected="true" aria-controls="signin-form">Sign In</button>
+            <button id="signup-tab" type="button" class="topbar-btn" data-auth-tab="signup" role="tab" aria-selected="false" aria-controls="signup-form">Sign Up</button>
           </div>
           <p id="auth-feedback" class="mt-4 hidden rounded-2xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-200"></p>
-          <form id="signin-form" class="mt-6 space-y-4">
+          <form id="signin-form" class="mt-6 space-y-4" role="tabpanel" aria-labelledby="signin-tab">
             <label class="block space-y-2">
               <span class="text-sm text-slate-300">Email</span>
               <input id="signin-email" class="input w-full" type="email" autocomplete="email" required />
@@ -37,7 +37,7 @@
             </label>
             <button class="primary-btn w-full" type="submit">Sign In</button>
           </form>
-          <form id="signup-form" class="mt-6 hidden space-y-4">
+          <form id="signup-form" class="mt-6 hidden space-y-4" role="tabpanel" aria-labelledby="signup-tab">
             <label class="block space-y-2">
               <span class="text-sm text-slate-300">Email</span>
               <input id="signup-email" class="input w-full" type="email" autocomplete="email" required />
@@ -72,12 +72,12 @@
         </div>
 
         <nav class="drawer-nav mt-6">
-          <button type="button" class="drawer-btn active" data-drawer="dashboard" aria-pressed="true">Dashboard</button>
-          <button type="button" class="drawer-btn" data-drawer="workspace" aria-pressed="false">Create</button>
-          <button type="button" class="drawer-btn" data-drawer="library" aria-pressed="false">History</button>
-          <button type="button" class="drawer-btn" data-drawer="prompts" aria-pressed="false">Saved Prompts</button>
-          <button type="button" class="drawer-btn" data-drawer="payments" aria-pressed="false">Payments</button>
-          <button type="button" class="drawer-btn" data-drawer="settings" aria-pressed="false">Settings</button>
+          <button type="button" class="drawer-btn active" data-drawer="dashboard" aria-current="page">Dashboard</button>
+          <button type="button" class="drawer-btn" data-drawer="workspace">Create</button>
+          <button type="button" class="drawer-btn" data-drawer="library">History</button>
+          <button type="button" class="drawer-btn" data-drawer="prompts">Saved Prompts</button>
+          <button type="button" class="drawer-btn" data-drawer="payments">Payments</button>
+          <button type="button" class="drawer-btn" data-drawer="settings">Settings</button>
         </nav>
 
         <div class="drawer-footer space-y-4">

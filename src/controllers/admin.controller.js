@@ -110,11 +110,11 @@ const updateUser = async (req, res) => {
   requireDatabase();
   const user = await User.findByPk(req.validated.params.id);
   if (!user) throw new HttpError(404, 'User not found');
-  const { creditsBalance, role, isSuspended, clearLoginLock } = req.validated.body;
+  const { creditsBalance, role, isSuspended, resetLoginCooldown } = req.validated.body;
   if (typeof creditsBalance === 'number') user.creditsBalance = creditsBalance;
   if (role) user.role = role;
   if (typeof isSuspended === 'boolean') user.isSuspended = isSuspended;
-  if (clearLoginLock) {
+  if (resetLoginCooldown) {
     user.failedLoginAttempts = 0;
     user.lockedUntil = null;
   }

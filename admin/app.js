@@ -83,8 +83,8 @@ const renderUsers = () => {
     const clearLabel = createElement('label', 'flex items-center gap-2 text-sm text-slate-300');
     const clearBox = createElement('input', '');
     clearBox.type = 'checkbox';
-    clearBox.name = 'clearLoginLock';
-    clearLabel.append(clearBox, document.createTextNode('Clear login lock'));
+    clearBox.name = 'resetLoginCooldown';
+    clearLabel.append(clearBox, document.createTextNode('Reset temporary login cooldown'));
 
     const save = createElement('button', 'primary-btn', 'Save');
     save.type = 'submit';
@@ -132,7 +132,7 @@ $('#user-list').addEventListener('submit', async (event) => {
   if (!creditsRaw || !Number.isInteger(creditsBalance) || creditsBalance < 0) return showUserFeedback('Credits must be a whole number greater than or equal to 0.', 'error');
   try {
     showUserFeedback('');
-    await api(`/api/admin/users/${form.dataset.userForm}`, { method: 'PATCH', body: JSON.stringify({ creditsBalance, role: formData.get('role'), isSuspended: formData.get('isSuspended') === 'true', clearLoginLock: formData.get('clearLoginLock') === 'on' }) });
+    await api(`/api/admin/users/${form.dataset.userForm}`, { method: 'PATCH', body: JSON.stringify({ creditsBalance, role: formData.get('role'), isSuspended: formData.get('isSuspended') === 'true', resetLoginCooldown: formData.get('resetLoginCooldown') === 'on' }) });
     await Promise.all([loadOverview(), loadUsers()]);
     showUserFeedback('User updated.');
   } catch (error) { showUserFeedback(error.message, 'error'); }

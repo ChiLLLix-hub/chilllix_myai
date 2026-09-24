@@ -33,7 +33,7 @@ router.patch('/users/:id', auditAction('admin.users.update'), validate(z.object(
     creditsBalance: z.number().int().min(0).optional(),
     role: z.enum(['user', 'admin']).optional(),
     isSuspended: z.boolean().optional(),
-    clearLoginLock: z.boolean().optional(),
+    resetLoginCooldown: z.boolean().optional(),
   }),
   query: z.object({}).passthrough(),
   params: z.object({ id: z.string().uuid() }),

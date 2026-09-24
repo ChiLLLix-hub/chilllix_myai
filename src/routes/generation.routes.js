@@ -9,6 +9,8 @@ const { cleanString } = require('../utils/sanitize');
 const { asyncHandler } = require('../utils/async-handler');
 
 const router = express.Router();
+const IMAGE_ASPECT_RATIOS = new Set(['auto', '1:1', '3:2', '2:3']);
+
 const generationBodySchema = z.object({
   prompt: z.string().min(5).max(4000).transform(cleanString),
   type: z.enum(['image', 'video', 'chat']),
@@ -25,6 +27,14 @@ const generationBodySchema = z.object({
     (value) => value === 'auto' || /^\d{1,2}:\d{1,2}$/.test(value),
     'Aspect ratio must be auto or in N:N format',
   ),
+}).superRefine((body, ctx) => {
+  if (body.type === 'image' && !IMAGE_ASPECT_RATIOS.has(body.aspectRatio)) {
+    ctx.addIssue({
+      code: 'custom',
+      message: 'Unsupported aspect ratio for the selected image models',
+      path: ['aspectRatio'],
+    });
+  }
 });
 
 router.use(requireAuth);

@@ -37,9 +37,11 @@ app.use('/api', notFoundHandler);
 app.use(pageRateLimiter);
 app.use('/admin-assets', express.static(path.join(__dirname, '..', 'admin')));
 app.get('/admin-login', (_req, res) => {
+  res.set('Cache-Control', 'no-store');
   res.sendFile(path.join(__dirname, '..', 'admin', 'index.html'));
 });
 app.get(/^\/admin(?:\/.*)?$/, requireAuth, requireRole('admin'), (_req, res) => {
+  res.set('Cache-Control', 'no-store');
   res.sendFile(path.join(__dirname, '..', 'admin', 'index.html'));
 });
 app.use(express.static(path.join(__dirname, '..', 'public')));

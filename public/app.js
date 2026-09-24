@@ -211,7 +211,8 @@ const showSection = (sectionId) => {
   $$('.drawer-btn').forEach((button) => {
     const active = button.dataset.drawer === state.activeDrawer;
     button.classList.toggle('active', active);
-    button.setAttribute('aria-pressed', String(active));
+    if (active) button.setAttribute('aria-current', 'page');
+    else button.removeAttribute('aria-current');
   });
   $$('.topbar-btn').forEach((button) => {
     const active = button.dataset.action === state.activeAction;
@@ -498,8 +499,13 @@ const restoreSession = async () => {
     await Promise.allSettled([loadDashboard(), loadPrompts(), loadGenerations(), loadTransactions()]);
     showAppShell();
     connectSocket();
-  } catch (_error) {
-    await clearSession();
+  } catch (error) {
+    if (error.status === 401 || error.status === 403) {
+      await clearSession();
+      return;
+    }
+    showAuthFeedback('Unable to restore the current session right now. Please refresh and try again.');
+    showAuthScreen();
   }
 };
 
@@ -511,7 +517,7 @@ $$('[data-auth-tab]').forEach((button) => {
     $$('[data-auth-tab]').forEach((tab) => {
       const active = tab.dataset.authTab === target;
       tab.classList.toggle('active', active);
-      tab.setAttribute('aria-pressed', String(active));
+      tab.setAttribute('aria-selected', String(active));
     });
     showAuthFeedback('');
   });
