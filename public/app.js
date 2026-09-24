@@ -107,6 +107,7 @@ const state = {
 const IMPLEMENTED_CREATOR_TYPES = new Set(['image']);
 const STORAGE_KEYS = Object.freeze({
   token: 'chilllix.token',
+  creditsBalance: 'chilllix.creditsBalance',
   guestEmail: 'chilllix.guest.email',
   guestPassword: 'chilllix.guest.password',
 });
@@ -149,15 +150,28 @@ const applySession = (payload) => {
   state.token = payload.token;
   state.creditsBalance = payload.user?.creditsBalance || 0;
   localStorage.setItem(STORAGE_KEYS.token, payload.token);
+  localStorage.setItem(STORAGE_KEYS.creditsBalance, String(state.creditsBalance));
   syncCreditsBalance();
 };
 
 const bootstrapSession = async () => {
   const persistedToken = localStorage.getItem(STORAGE_KEYS.token);
+  const persistedCredits = localStorage.getItem(STORAGE_KEYS.creditsBalance);
+  if (persistedCredits) {
+    state.creditsBalance = Number.parseInt(persistedCredits, 10) || 0;
+    syncCreditsBalance();
+  }
   if (persistedToken) {
     state.token = persistedToken;
-    syncCreditsBalance();
-    return;
+    try {
+      const profile = await api('/api/profile');
+      state.creditsBalance = profile.creditsBalance || 0;
+      localStorage.setItem(STORAGE_KEYS.creditsBalance, String(state.creditsBalance));
+      syncCreditsBalance();
+      return;
+    } catch (_error) {
+      localStorage.removeItem(STORAGE_KEYS.token);
+    }
   }
 
   const credentials = getGuestCredentials();
