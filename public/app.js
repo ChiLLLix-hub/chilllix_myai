@@ -166,6 +166,9 @@ const showAuthScreen = () => {
   $$('#generate-submit, #save-prompt-btn, [data-select-model]').forEach((element) => {
     element.disabled = true;
   });
+  requestAnimationFrame(() => {
+    $('#signin-email')?.focus();
+  });
 };
 
 const showAppShell = () => {
@@ -598,8 +601,13 @@ const loadAdminUsers = async () => {
 };
 
 const hydrateAuthenticatedState = async () => {
-  await Promise.all([loadProfile(), loadPrompts(), loadGenerations()]);
+  await loadProfile();
+  await Promise.allSettled([loadPrompts(), loadGenerations()]);
   showAppShell();
+};
+
+const loadInitialCollections = async () => {
+  await Promise.allSettled([loadPrompts(), loadGenerations()]);
 };
 
 const restoreSession = async () => {
@@ -635,7 +643,7 @@ $('#signin-form').addEventListener('submit', async (event) => {
       }),
     });
     applyAuthPayload(payload);
-    await Promise.all([loadProfile(), loadPrompts(), loadGenerations()]);
+    await Promise.allSettled([loadProfile(), loadInitialCollections()]);
     setTopAction('image');
     $('#signin-form').reset();
   } catch (error) {
@@ -659,7 +667,7 @@ $('#signup-form').addEventListener('submit', async (event) => {
       }),
     });
     applyAuthPayload(payload);
-    await Promise.all([loadProfile(), loadPrompts(), loadGenerations()]);
+    await Promise.allSettled([loadProfile(), loadInitialCollections()]);
     setTopAction('image');
     $('#signup-form').reset();
   } catch (error) {
@@ -683,8 +691,15 @@ $$('[data-auth-tab]').forEach((button) => {
 
 $('#logout-btn').addEventListener('click', () => {
   clearSession();
-  returnToCatalog();
-  setTopAction('image');
+  state.selectedModel = null;
+  $('#creator-view').classList.add('hidden');
+  $('#catalog-view').classList.remove('hidden');
+  state.workspaceAction = 'image';
+  state.activeAction = 'image';
+  state.activeDrawer = 'workspace';
+  updateActionHeader();
+  renderModelCards();
+  showSection('workspace');
 });
 
 $('#generation-form').addEventListener('submit', async (event) => {
@@ -781,13 +796,20 @@ $('#admin-user-list').addEventListener('submit', async (event) => {
 
   const userId = form.dataset.userForm;
   const formData = new FormData(form);
+  const creditsBalanceRaw = String(formData.get('creditsBalance') || '').trim();
+  const creditsBalance = Number(creditsBalanceRaw);
+
+  if (!creditsBalanceRaw || !Number.isInteger(creditsBalance) || creditsBalance < 0) {
+    showAdminFeedback('Credits must be a whole number greater than or equal to 0.', 'error');
+    return;
+  }
 
   try {
     showAdminFeedback('');
     const updated = await api(`/api/admin/users/${userId}`, {
       method: 'PATCH',
       body: JSON.stringify({
-        creditsBalance: Number(formData.get('creditsBalance')),
+        creditsBalance,
         role: formData.get('role'),
         isSuspended: formData.get('isSuspended') === 'true',
       }),
