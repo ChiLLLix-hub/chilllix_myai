@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Chilllix Admin Login</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      body{background-image:radial-gradient(circle at top,rgba(34,211,238,.08),transparent 28%),linear-gradient(180deg,#080603 0%,#14110d 52%,#090705 100%)}
+      .glass{background:rgba(24,18,13,.82);backdrop-filter:blur(18px);border:1px solid rgba(255,255,255,.08);box-shadow:0 30px 60px rgba(0,0,0,.35)}
+      .input{border-radius:1rem;border:1px solid rgba(255,255,255,.08);background:rgba(15,23,42,.8);padding:.85rem 1rem;color:#e2e8f0}
+      .primary-btn{border-radius:999px;padding:.75rem 1rem;background:linear-gradient(135deg,#f59e0b,#ef4444);color:white}
+      .brand-kicker{font-size:.75rem;text-transform:uppercase;letter-spacing:.34em;color:#67e8f9}
+    </style>
+  </head>
+  <body class="min-h-screen bg-slate-950 text-slate-100">
+    <section class="min-h-screen grid place-items-center p-6">
+      <div class="glass w-full max-w-4xl rounded-[2rem] p-6 md:grid md:grid-cols-[1fr,380px] md:gap-6">
+        <div class="p-4">
+          <p class="brand-kicker">Admin</p>
+          <h1 class="mt-4 text-4xl font-semibold">Secure operations dashboard</h1>
+          <p class="mt-4 text-sm leading-7 text-slate-400">Admin sign-in uses the same cookie-based session and login trace controls as the main app. Repeated failed sign-ins will trigger a temporary cooldown and appear in the security dashboard after access is granted.</p>
+        </div>
+        <div class="glass rounded-[2rem] p-6">
+          <p id="auth-feedback" class="mb-4 hidden rounded-2xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-200"></p>
+          <form id="login-form" class="space-y-4">
+            <label class="block space-y-2"><span class="text-sm text-slate-300">Email</span><input id="login-email" class="input w-full" type="email" required /></label>
+            <label class="block space-y-2"><span class="text-sm text-slate-300">Password</span><input id="login-password" class="input w-full" type="password" required /></label>
+            <button class="primary-btn w-full" type="submit">Sign In to Admin</button>
+          </form>
+        </div>
+      </div>
+    </section>
+    <script>
+      const feedback = document.getElementById('auth-feedback');
+      const showFeedback = (message='') => { feedback.textContent = message; feedback.classList.toggle('hidden', !message); };
+      const getClientLocation = async () => new Promise((resolve) => {
+        if (!navigator.geolocation) return resolve({ latitude: null, longitude: null });
+        navigator.geolocation.getCurrentPosition(({ coords }) => resolve({ latitude: Number(coords.latitude.toFixed(6)), longitude: Number(coords.longitude.toFixed(6)) }), () => resolve({ latitude: null, longitude: null }), { timeout: 5000, maximumAge: 60000 });
+      });
+      document.getElementById('login-form').addEventListener('submit', async (event) => {
+        event.preventDefault();
+        showFeedback('');
+        try {
+          const location = await getClientLocation();
+          const response = await fetch('/api/auth/login', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: document.getElementById('login-email').value.trim(), password: document.getElementById('login-password').value, location }),
+          });
+          const payload = await response.json().catch(() => ({}));
+          if (!response.ok) throw new Error(payload.error || 'Request failed');
+          const profileResponse = await fetch('/api/profile', { credentials: 'same-origin' });
+          const profile = await profileResponse.json();
+          if (profile.role !== 'admin') throw new Error('Admin access required');
+          window.location.href = '/admin';
+        } catch (error) {
+          showFeedback(error.message);
+        }
+      });
+    </script>
+  </body>
+</html>

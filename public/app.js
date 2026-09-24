@@ -512,8 +512,15 @@ const restoreSession = async () => {
 $$('[data-auth-tab]').forEach((button) => {
   button.addEventListener('click', () => {
     const target = button.dataset.authTab;
-    $('#signin-form').classList.toggle('hidden', target !== 'signin');
-    $('#signup-form').classList.toggle('hidden', target !== 'signup');
+    const signInForm = $('#signin-form');
+    const signUpForm = $('#signup-form');
+    const showSignIn = target === 'signin';
+    signInForm.classList.toggle('hidden', !showSignIn);
+    signInForm.hidden = !showSignIn;
+    signInForm.setAttribute('aria-hidden', String(!showSignIn));
+    signUpForm.classList.toggle('hidden', showSignIn);
+    signUpForm.hidden = showSignIn;
+    signUpForm.setAttribute('aria-hidden', String(showSignIn));
     $$('[data-auth-tab]').forEach((tab) => {
       const active = tab.dataset.authTab === target;
       tab.classList.toggle('active', active);

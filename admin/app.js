@@ -22,7 +22,7 @@ const showUserFeedback = (message = '', tone = 'info') => {
   el.classList.add(tone === 'error' ? 'border-red-400/30' : 'border-cyan-400/30', tone === 'error' ? 'bg-red-500/10' : 'bg-cyan-500/10', tone === 'error' ? 'text-red-200' : 'text-cyan-100');
 };
 const setDrawerOpen = (open) => { state.drawerOpen = open; $('#drawer').classList.toggle('drawer-open', open || window.innerWidth >= 1024); $('#drawer-overlay').classList.toggle('hidden', !open || window.innerWidth >= 1024); };
-const showAuth = () => { $('#auth-screen').classList.remove('hidden'); $('#app-shell').classList.add('hidden'); requestAnimationFrame(() => $('#login-email')?.focus()); };
+const showAuth = () => { window.location.href = '/admin-login'; };
 const showApp = () => { $('#auth-screen').classList.add('hidden'); $('#app-shell').classList.remove('hidden'); $('#session-email').textContent = state.user?.email || ''; };
 const setSection = (section) => { state.activeSection = section; $$('.content-section').forEach((node) => node.classList.add('hidden')); $(`#${section}`)?.classList.remove('hidden'); $$('.drawer-btn').forEach((btn) => btn.classList.toggle('active', btn.dataset.section === section)); if (window.innerWidth < 1024) setDrawerOpen(false); };
 const renderList = (selector, items, render, empty) => { const host = $(selector); host.innerHTML = ''; if (!items?.length) return host.appendChild(createElement('div', 'activity-card text-sm text-slate-400', empty)); items.forEach((item) => host.appendChild(render(item))); };

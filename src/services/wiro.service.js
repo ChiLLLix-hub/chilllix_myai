@@ -184,9 +184,6 @@ const submitGeneration = async ({ generationId, type, model, prompt, aspectRatio
   }
 
   if (type === 'image') {
-    if (model === undefined || model === null) {
-      return submitLegacyGeneration({ type, prompt, aspectRatio, fetchImpl: options.fetchImpl });
-    }
     return submitImageGeneration({ model, prompt, aspectRatio }, options);
   }
 

@@ -26,7 +26,7 @@
             <button id="signup-tab" type="button" class="topbar-btn" data-auth-tab="signup" role="tab" aria-selected="false" aria-controls="signup-form">Sign Up</button>
           </div>
           <p id="auth-feedback" class="mt-4 hidden rounded-2xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-200"></p>
-          <form id="signin-form" class="mt-6 space-y-4" role="tabpanel" aria-labelledby="signin-tab">
+          <form id="signin-form" class="mt-6 space-y-4" role="tabpanel" aria-labelledby="signin-tab" aria-hidden="false">
             <label class="block space-y-2">
               <span class="text-sm text-slate-300">Email</span>
               <input id="signin-email" class="input w-full" type="email" autocomplete="email" required />
@@ -37,7 +37,7 @@
             </label>
             <button class="primary-btn w-full" type="submit">Sign In</button>
           </form>
-          <form id="signup-form" class="mt-6 hidden space-y-4" role="tabpanel" aria-labelledby="signup-tab">
+          <form id="signup-form" class="mt-6 hidden space-y-4" role="tabpanel" aria-labelledby="signup-tab" aria-hidden="true" hidden>
             <label class="block space-y-2">
               <span class="text-sm text-slate-300">Email</span>
               <input id="signup-email" class="input w-full" type="email" autocomplete="email" required />
@@ -56,7 +56,7 @@
       </div>
     </section>
 
-    <div id="drawer-overlay" class="drawer-overlay hidden"></div>
+    <button id="drawer-overlay" class="drawer-overlay hidden" type="button" aria-label="Close navigation menu"></button>
 
     <div id="app-shell" class="app-shell hidden">
       <aside id="drawer" class="drawer glass drawer-collapsed">
