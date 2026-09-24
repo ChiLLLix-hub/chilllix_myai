@@ -106,18 +106,22 @@ npm start
 4. Run migration against Railway PostgreSQL:
 
    ```bash
+   export DATABASE_URL="<railway-postgres-url>"
    npm run db:migrate
    ```
 
-### Option A: cPanel reverse proxy `/api` and `/socket.io` to Railway
+   Run this in Railway shell/CLI or in a local shell where `DATABASE_URL` is explicitly set to the Railway PostgreSQL connection string.
 
-1. Copy `/public/.htaccess.example` to `/public/.htaccess`.
+### Option A: Apache vhost reverse proxy `/api` and `/socket.io` to Railway
+
+1. Use `/deploy/apache-vhost-proxy.conf.example` in Apache vhost config.
 2. Replace `YOUR_RAILWAY_APP` with your Railway app hostname.
-3. Ensure your cPanel host enables `mod_proxy`, `mod_proxy_http`, and `mod_proxy_wstunnel`, and allows proxy rewrite directives in `.htaccess`.
+3. Ensure Apache modules are enabled: `mod_proxy`, `mod_proxy_http`, `mod_proxy_wstunnel`.
+4. This option requires vhost-level access (WHM/root or managed host support).
 
 ### Option B (fallback): use API subdomain directly
 
-If your cPanel host cannot proxy in `.htaccess`, point `api.agromar.com.my` directly to Railway and set frontend API base:
+If your hosting plan does not allow vhost proxy rules, point `api.agromar.com.my` directly to Railway and set frontend API base:
 
 - Edit `/public/index.html` and set:
 

@@ -1,0 +1,9 @@
+ProxyPreserveHost On
+SSLProxyEngine On
+
+# Replace host below with your Railway backend host.
+ProxyPass /api/ https://YOUR_RAILWAY_APP.up.railway.app/api/
+ProxyPassReverse /api/ https://YOUR_RAILWAY_APP.up.railway.app/api/
+
+ProxyPass /socket.io/ wss://YOUR_RAILWAY_APP.up.railway.app/socket.io/
+ProxyPassReverse /socket.io/ wss://YOUR_RAILWAY_APP.up.railway.app/socket.io/
