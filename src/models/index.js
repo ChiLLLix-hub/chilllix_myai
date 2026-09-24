@@ -12,6 +12,12 @@ if (sequelize) {
     avatarUrl: { type: DataTypes.TEXT, field: 'avatar_url' },
     creditsBalance: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0, field: 'credits_balance' },
     isSuspended: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false, field: 'is_suspended' },
+    failedLoginAttempts: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0, field: 'failed_login_attempts' },
+    lockedUntil: { type: DataTypes.DATE, field: 'locked_until' },
+    lastLoginAt: { type: DataTypes.DATE, field: 'last_login_at' },
+    lastLoginIp: { type: DataTypes.STRING, field: 'last_login_ip' },
+    lastLoginLatitude: { type: DataTypes.DECIMAL(9, 6), field: 'last_login_latitude' },
+    lastLoginLongitude: { type: DataTypes.DECIMAL(9, 6), field: 'last_login_longitude' },
   }, { tableName: 'users', underscored: true });
 
   models.SavedPrompt = sequelize.define('SavedPrompt', {
@@ -36,6 +42,7 @@ if (sequelize) {
     prompt: { type: DataTypes.TEXT, allowNull: false },
     outputUrl: { type: DataTypes.TEXT, field: 'output_url' },
     storageKey: { type: DataTypes.TEXT, field: 'storage_key' },
+    modelUsed: { type: DataTypes.STRING, field: 'model_used' },
     status: { type: DataTypes.ENUM('queued', 'processing', 'completed', 'failed'), allowNull: false, defaultValue: 'queued' },
     costCredits: { type: DataTypes.INTEGER, allowNull: false, field: 'cost_credits' },
     expiresAt: { type: DataTypes.DATE, field: 'expires_at' },

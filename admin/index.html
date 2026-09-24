@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Chilllix Admin</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/admin-assets/styles.css" />
+  </head>
+  <body class="min-h-screen bg-slate-950 text-slate-100">
+    <section id="auth-screen" class="auth-shell">
+      <div class="auth-panel glass">
+        <div>
+          <p class="brand-kicker">Admin</p>
+          <h1 class="mt-4 text-4xl font-semibold">Secure operations dashboard</h1>
+          <p class="mt-4 text-sm leading-7 text-slate-400">Sign in with an admin account to review login traces, locked accounts, prompt/query activity, generation status, income, and latest transactions.</p>
+        </div>
+        <div class="glass rounded-[2rem] p-6">
+          <p id="auth-feedback" class="mb-4 hidden rounded-2xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-200"></p>
+          <form id="login-form" class="space-y-4">
+            <label class="block space-y-2"><span class="text-sm text-slate-300">Email</span><input id="login-email" class="input w-full" type="email" required /></label>
+            <label class="block space-y-2"><span class="text-sm text-slate-300">Password</span><input id="login-password" class="input w-full" type="password" required /></label>
+            <button class="primary-btn w-full" type="submit">Sign In</button>
+          </form>
+        </div>
+      </div>
+    </section>
+
+    <div id="drawer-overlay" class="drawer-overlay hidden"></div>
+    <div id="app-shell" class="app-shell hidden">
+      <aside id="drawer" class="drawer glass drawer-collapsed">
+        <div>
+          <div class="flex items-center justify-between gap-4">
+            <div>
+              <p class="brand-kicker">Chilllix</p>
+              <h1 class="text-3xl font-semibold">Admin</h1>
+            </div>
+            <button id="drawer-close" class="secondary-btn lg:hidden" type="button">Close</button>
+          </div>
+          <p class="mt-3 text-sm text-slate-400">Monitor security, users, prompts, transactions, and Wiro generation outcomes.</p>
+        </div>
+        <nav class="drawer-nav mt-6">
+          <button type="button" class="drawer-btn active" data-section="overview">Overview</button>
+          <button type="button" class="drawer-btn" data-section="users">Users</button>
+          <button type="button" class="drawer-btn" data-section="security">Security</button>
+        </nav>
+        <div class="glass rounded-3xl p-4 text-sm text-slate-300">
+          <p id="session-email" class="font-medium text-slate-100"></p>
+          <p class="mt-1 text-xs uppercase tracking-[0.24em] text-slate-500">Admin session</p>
+          <button id="logout-btn" type="button" class="secondary-btn mt-4 w-full">Sign Out</button>
+        </div>
+      </aside>
+
+      <main class="content-area">
+        <header class="glass topbar">
+          <div class="flex items-center gap-3">
+            <button id="drawer-open" class="secondary-btn" type="button">Menu</button>
+            <div>
+              <p class="brand-kicker">Operations</p>
+              <p class="text-sm text-slate-300">Account lockouts, login traces, prompts, income, and user management.</p>
+            </div>
+          </div>
+          <button id="refresh-btn" class="primary-btn" type="button">Refresh Dashboard</button>
+        </header>
+
+        <section id="overview" class="content-section space-y-6">
+          <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <article class="glass rounded-3xl p-5"><p class="text-sm text-slate-400">Active Users</p><p id="metric-users" class="mt-2 text-3xl font-semibold">0</p></article>
+            <article class="glass rounded-3xl p-5"><p class="text-sm text-slate-400">Total Generations</p><p id="metric-generations" class="mt-2 text-3xl font-semibold">0</p></article>
+            <article class="glass rounded-3xl p-5"><p class="text-sm text-slate-400">Income</p><p id="metric-income" class="mt-2 text-3xl font-semibold">$0</p></article>
+            <article class="glass rounded-3xl p-5"><p class="text-sm text-slate-400">Locked Accounts</p><p id="metric-locked" class="mt-2 text-3xl font-semibold">0</p></article>
+          </div>
+          <div class="grid gap-6 xl:grid-cols-2">
+            <section class="glass rounded-[2rem] p-6"><h2 class="text-lg font-medium">Today's User Logins</h2><div id="todays-logins" class="mt-4 space-y-3"></div></section>
+            <section class="glass rounded-[2rem] p-6"><h2 class="text-lg font-medium">Generation Status</h2><div id="generation-status-list" class="mt-4 space-y-3"></div></section>
+            <section class="glass rounded-[2rem] p-6"><h2 class="text-lg font-medium">Latest Transactions</h2><div id="latest-transactions" class="mt-4 space-y-3"></div></section>
+            <section class="glass rounded-[2rem] p-6"><h2 class="text-lg font-medium">Latest User Queries / Prompts</h2><div id="latest-queries" class="mt-4 space-y-3"></div></section>
+            <section class="glass rounded-[2rem] p-6 xl:col-span-2"><h2 class="text-lg font-medium">10 Last User Prompt Activity</h2><div id="prompt-activity" class="mt-4 space-y-3"></div></section>
+          </div>
+        </section>
+
+        <section id="users" class="content-section hidden glass rounded-[2rem] p-6">
+          <div class="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <h2 class="text-lg font-medium">User Controls</h2>
+              <p class="mt-2 text-sm text-slate-400">Search users, add credits, suspend or unlock accounts, and review last login traces.</p>
+            </div>
+            <input id="user-search" class="input w-full lg:w-72" placeholder="Search users by email" />
+          </div>
+          <p id="user-feedback" class="mb-4 hidden rounded-2xl border border-cyan-400/30 bg-cyan-500/10 px-4 py-3 text-sm text-cyan-100"></p>
+          <div id="user-list" class="grid gap-4"></div>
+        </section>
+
+        <section id="security" class="content-section hidden glass rounded-[2rem] p-6">
+          <h2 class="text-lg font-medium">Security Feed</h2>
+          <div class="mt-4 grid gap-6 xl:grid-cols-2">
+            <section class="glass rounded-3xl p-5"><h3 class="text-base font-medium">Locked / Suspended Accounts</h3><div id="locked-accounts" class="mt-4 space-y-3"></div></section>
+            <section class="glass rounded-3xl p-5"><h3 class="text-base font-medium">Recent Failed / Locked Sign-ins</h3><div id="security-events" class="mt-4 space-y-3"></div></section>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="/admin-assets/app.js"></script>
+  </body>
+</html>

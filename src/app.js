@@ -9,14 +9,16 @@ const promptRoutes = require('./routes/prompt.routes');
 const generationRoutes = require('./routes/generation.routes');
 const transactionRoutes = require('./routes/transaction.routes');
 const adminRoutes = require('./routes/admin.routes');
+const { requireAuth, requireRole } = require('./middleware/auth.middleware');
 const { generalKnownApiRateLimiter, generalApiRedisRateLimiter, pageRateLimiter } = require('./middleware/rate-limit.middleware');
+const { enforceCsrf } = require('./middleware/csrf.middleware');
 const { auditLogger } = require('./middleware/audit.middleware');
 const { errorHandler, notFoundHandler } = require('./middleware/error.middleware');
 
 const app = express();
 app.set('trust proxy', 1);
 app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
-app.use(cors({ origin: env.frontendOrigin, credentials: false, methods: ['GET', 'POST', 'PUT', 'PATCH'], allowedHeaders: ['Content-Type', 'Authorization'] }));
+app.use(cors({ origin: env.frontendOrigin, credentials: true, methods: ['GET', 'POST', 'PUT', 'PATCH'], allowedHeaders: ['Content-Type', 'Authorization'] }));
 app.use(express.json({ limit: '1mb' }));
 app.use(auditLogger);
 
@@ -26,6 +28,7 @@ app.get('/health', pageRateLimiter, (_req, res) => {
 
 app.use('/api', generalKnownApiRateLimiter);
 app.use('/api', generalApiRedisRateLimiter);
+app.use('/api', enforceCsrf);
 app.use('/api/auth', authRoutes);
 app.use('/api/profile', profileRoutes);
 app.use('/api/prompts', promptRoutes);
@@ -34,8 +37,17 @@ app.use('/api/transactions', transactionRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api', notFoundHandler);
 app.use(pageRateLimiter);
+app.use('/admin-assets', requireAuth, requireRole('admin'), express.static(path.join(__dirname, '..', 'admin')));
+app.get('/admin-login', (_req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.sendFile(path.join(__dirname, '..', 'admin', 'login.html'));
+});
+app.get(/^\/admin(?:\/.*)?$/, requireAuth, requireRole('admin'), (_req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.sendFile(path.join(__dirname, '..', 'admin', 'index.html'));
+});
 app.use(express.static(path.join(__dirname, '..', 'public')));
-app.get(/^\/(?!api(?:\/|$)).*/, (_req, res) => {
+app.get(/^\/(?!api(?:\/|$)|admin-assets(?:\/|$)).*/, (_req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
 });
 app.use(notFoundHandler);

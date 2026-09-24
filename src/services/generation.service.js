@@ -4,6 +4,7 @@ const { User, Generation } = require('../models');
 const { DEFAULT_SETTINGS, getSettingsMap } = require('./settings.service');
 const { enqueueGeneration } = require('./queue.service');
 const { emitGenerationUpdate } = require('./socket.service');
+const { getDefaultGenerationModel, lookupSupportedGenerationModel } = require('./model-catalog.service');
 const { HttpError } = require('../utils/http-error');
 
 const resolveGenerationCosts = (settings) => ({
@@ -18,7 +19,18 @@ const calculateExpiryDate = (retentionDays) => {
   return expiresAt;
 };
 
-const queueGenerationRequest = async ({ userId, prompt, type, aspectRatio, stylePreset }) => {
+const resolveRequestedModel = ({ type, model }) => {
+  if (type !== 'image') return null;
+  const config = model
+    ? lookupSupportedGenerationModel(type, model)
+    : getDefaultGenerationModel(type);
+  if (!config) {
+    throw new HttpError(400, 'Unsupported image model');
+  }
+  return config.id;
+};
+
+const queueGenerationRequest = async ({ userId, prompt, type, model, aspectRatio }) => {
   const settings = await getSettingsMap();
   const costs = resolveGenerationCosts(settings);
   const costCredits = costs[type];
@@ -26,6 +38,7 @@ const queueGenerationRequest = async ({ userId, prompt, type, aspectRatio, style
   if (!costCredits) {
     throw new HttpError(400, 'Unsupported generation type');
   }
+  const selectedModel = type === 'image' ? resolveRequestedModel({ type, model }) : undefined;
 
   if (!User || !Generation || !sequelize) {
     throw new HttpError(503, 'Database is not configured');
@@ -54,6 +67,7 @@ const queueGenerationRequest = async ({ userId, prompt, type, aspectRatio, style
       userId,
       type,
       prompt,
+      modelUsed: selectedModel || null,
       status: 'queued',
       costCredits,
       expiresAt: calculateExpiryDate(settings.asset_retention_days),
@@ -61,12 +75,12 @@ const queueGenerationRequest = async ({ userId, prompt, type, aspectRatio, style
     await transaction.commit();
     committed = true;
     try {
-      await enqueueGeneration({ generationId: generation.id, userId, prompt, type, aspectRatio, stylePreset, costCredits });
+      await enqueueGeneration({ generationId: generation.id, userId, prompt, type, model: selectedModel, aspectRatio, costCredits });
     } catch (error) {
       await failGenerationAndRefund({ generationId: generation.id, userId, reason: 'Queue submission failed' });
       throw error;
     }
-    emitGenerationUpdate(userId, { id: generation.id, status: 'queued', progress: 0 });
+    emitGenerationUpdate(userId, { id: generation.id, status: 'queued', progress: 0, model: selectedModel });
     return generation;
   } catch (error) {
     if (!committed) {
@@ -138,6 +152,7 @@ const failGenerationAndRefund = (payload) => refundFailedGeneration({}, payload)
 module.exports = {
   resolveGenerationCosts,
   calculateExpiryDate,
+  resolveRequestedModel,
   queueGenerationRequest,
   markGenerationProcessing,
   completeGeneration,

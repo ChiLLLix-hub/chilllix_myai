@@ -9,8 +9,8 @@ const listGenerations = async (req, res) => {
 };
 
 const createGeneration = async (req, res) => {
-  const { prompt, type, aspectRatio, stylePreset } = req.validated.body;
-  const generation = await queueGenerationRequest({ userId: req.user.sub, prompt, type, aspectRatio, stylePreset });
+  const { prompt, type, model, aspectRatio } = req.validated.body;
+  const generation = await queueGenerationRequest({ userId: req.user.sub, prompt, type, model, aspectRatio });
   res.status(202).json(generation);
 };
 

@@ -25,7 +25,7 @@ const start = async () => {
 
   const server = http.createServer(app);
   const io = new Server(server, {
-    cors: { origin: env.frontendOrigin, methods: ['GET', 'POST'] },
+    cors: { origin: env.frontendOrigin, methods: ['GET', 'POST'], credentials: true },
   });
   registerSocketServer(io);
 

@@ -1,9 +1,14 @@
+process.env.WIRO_API_KEY = 'test-wiro-key';
+
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { cleanString, cleanStringArray, cleanJson } = require('../src/utils/sanitize');
-const { resolveGenerationCosts, calculateExpiryDate, persistCompletedGeneration, refundFailedGeneration } = require('../src/services/generation.service');
+const { resolveGenerationCosts, calculateExpiryDate, resolveRequestedModel, persistCompletedGeneration, refundFailedGeneration } = require('../src/services/generation.service');
+const { buildImageFields, ensureSupportedSize, extractOutputUrl, pollTaskDetail, submitAsyncRun, submitImageGeneration } = require('../src/services/wiro.service');
 const { shouldCleanupGeneration } = require('../src/jobs/cleanup.job');
 const { buildSslConfig, runMigration } = require('../src/scripts/run-migration');
+const { parseCookies, getAuthTokenFromRequest } = require('../src/utils/auth-cookie');
+const { parseLocation } = require('../src/utils/request-context');
 
 test('cleanString strips HTML and normalizes whitespace', () => {
   assert.equal(cleanString(' <script>alert(1)</script> hi   there '), 'hi there');
@@ -17,6 +22,18 @@ test('cleanJson recursively sanitizes nested values', () => {
   assert.deepEqual(cleanJson({ prompt: '<img src=x onerror=1>sky', nested: [' a ', '<b>b</b>'] }), { prompt: 'sky', nested: ['a', 'b'] });
 });
 
+test('auth cookie helpers parse cookies and prefer bearer tokens', () => {
+  assert.deepEqual(parseCookies('a=1; chilllix_session=test-token'), { a: '1', chilllix_session: 'test-token' });
+  assert.equal(parseCookies('chilllix_session=%E0%A4%A').chilllix_session, '%E0%A4%A');
+  assert.equal(getAuthTokenFromRequest({ headers: { cookie: 'chilllix_session=test-token' } }), 'test-token');
+  assert.equal(getAuthTokenFromRequest({ headers: { authorization: 'Bearer'.concat(' api-token'), cookie: 'chilllix_session=test-token' } }), 'api-token');
+});
+
+test('parseLocation only accepts finite coordinates', () => {
+  assert.deepEqual(parseLocation({ latitude: 1.234567, longitude: 2.345678 }), { latitude: 1.234567, longitude: 2.345678 });
+  assert.deepEqual(parseLocation({ latitude: 'bad', longitude: null }), { latitude: null, longitude: null });
+});
+
 test('resolveGenerationCosts respects configured settings', () => {
   assert.deepEqual(resolveGenerationCosts({ credit_cost_image: 1, credit_cost_video: 2, credit_cost_chat: 3 }), { image: 1, video: 2, chat: 3 });
 });
@@ -24,6 +41,241 @@ test('resolveGenerationCosts respects configured settings', () => {
 test('calculateExpiryDate defaults into the future', () => {
   const expiresAt = calculateExpiryDate(7);
   assert.ok(expiresAt > new Date());
+});
+
+test('resolveRequestedModel only allows configured image models', () => {
+  assert.equal(resolveRequestedModel({ type: 'image', model: 'openai/gpt-image-2' }), 'openai/gpt-image-2');
+  assert.equal(resolveRequestedModel({ type: 'image', model: undefined }), 'openai/gpt-image-2-5-flare');
+  assert.equal(resolveRequestedModel({ type: 'video', model: undefined }), null);
+  assert.throws(() => resolveRequestedModel({ type: 'image', model: 'bad/model' }), /Unsupported image model/);
+});
+
+test('buildImageFields maps prompt and requested size', () => {
+  assert.deepEqual(buildImageFields({ prompt: 'sunset skyline', aspectRatio: '3:2' }), {
+    prompt: 'sunset skyline',
+    size: '3:2',
+  });
+});
+
+test('ensureSupportedSize rejects undeclared image sizes', () => {
+  const modelConfig = {
+    id: 'openai/gpt-image-2',
+    fields: { sizeOptions: ['auto', '1:1', '3:2', '2:3'] },
+  };
+  assert.equal(ensureSupportedSize(modelConfig, '1:1'), '1:1');
+  assert.throws(() => ensureSupportedSize(modelConfig, '16:9'), /Unsupported image size/);
+});
+
+test('extractOutputUrl returns the first output url', () => {
+  assert.equal(extractOutputUrl({ outputs: [{ url: 'https://cdn.example.com/file.png' }] }), 'https://cdn.example.com/file.png');
+  assert.throws(() => extractOutputUrl({ outputs: [] }), /without an output URL/);
+});
+
+test('submitAsyncRun posts multipart form data to the model run endpoint', async () => {
+  const calls = [];
+  const fetchImpl = async (url, options) => {
+    calls.push({ url, options });
+    return {
+      ok: true,
+      async text() {
+        return JSON.stringify({ errors: [], taskid: 'task-1', result: true });
+      },
+    };
+  };
+
+  const result = await submitAsyncRun({
+    model: 'openai/gpt-image-2',
+    fields: { prompt: 'cat', size: '1:1' },
+    fetchImpl,
+  });
+
+  assert.equal(result.taskid, 'task-1');
+  assert.equal(calls[0].url.endsWith('/Run/openai/gpt-image-2'), true);
+  assert.equal(calls[0].options.method, 'POST');
+  assert.equal(calls[0].options.headers['x-api-key'], 'test-wiro-key');
+  assert.ok(calls[0].options.body instanceof FormData);
+});
+
+test('submitAsyncRun surfaces Wiro error payloads and missing task ids', async () => {
+  await assert.rejects(
+    () => submitAsyncRun({
+      model: 'openai/gpt-image-2',
+      fields: { prompt: 'cat' },
+      fetchImpl: async () => ({
+        ok: true,
+        async text() {
+          return JSON.stringify({ errors: ['rate limited'], result: false });
+        },
+      }),
+    }),
+    /rate limited/,
+  );
+
+  await assert.rejects(
+    () => submitAsyncRun({
+      model: 'openai/gpt-image-2',
+      fields: { prompt: 'cat' },
+      fetchImpl: async () => ({
+        ok: true,
+        async text() {
+          return JSON.stringify({ errors: [], result: true });
+        },
+      }),
+    }),
+    /did not return a task id/,
+  );
+});
+
+
+test('submitImageGeneration resolves a configured image model end to end', async () => {
+  const calls = [];
+  const responses = [
+    { errors: [], taskid: 'task-42', result: true },
+    { tasklist: [{ status: 'task_postprocess_end', outputs: [{ url: 'https://cdn.example.com/image.png' }] }], errors: [], result: true },
+  ];
+  const fetchImpl = async (url, options) => {
+    calls.push({ url, options });
+    return {
+      ok: true,
+      async text() {
+        return JSON.stringify(responses.shift());
+      },
+    };
+  };
+
+  const result = await submitImageGeneration({
+    model: 'openai/gpt-image-2',
+    prompt: 'cat portrait',
+    aspectRatio: '1:1',
+  }, {
+    fetchImpl,
+    pollIntervalMs: 0,
+    maxAttempts: 2,
+  });
+
+  assert.equal(result.outputUrl, 'https://cdn.example.com/image.png');
+  assert.equal(result.taskId, 'task-42');
+  assert.equal(calls[0].url.endsWith('/Run/openai/gpt-image-2'), true);
+  assert.equal(calls[1].url.endsWith('/Task/Detail'), true);
+});
+
+
+test('submitImageGeneration falls back to the default image model when omitted', async () => {
+  const calls = [];
+  const responses = [
+    { errors: [], taskid: 'task-default', result: true },
+    { tasklist: [{ status: 'task_postprocess_end', outputs: [{ url: 'https://cdn.example.com/default.png' }] }], errors: [], result: true },
+  ];
+  const fetchImpl = async (url, options) => {
+    calls.push({ url, options });
+    return {
+      ok: true,
+      async text() {
+        return JSON.stringify(responses.shift());
+      },
+    };
+  };
+
+  const result = await submitImageGeneration({
+    prompt: 'default model portrait',
+    aspectRatio: '1:1',
+  }, {
+    fetchImpl,
+    pollIntervalMs: 0,
+    maxAttempts: 2,
+  });
+
+  assert.equal(result.outputUrl, 'https://cdn.example.com/default.png');
+  assert.equal(calls[0].url.endsWith('/Run/openai/gpt-image-2-5-flare'), true);
+});
+
+test('submitImageGeneration rejects unsupported image models before calling Wiro', async () => {
+  let called = false;
+  await assert.rejects(
+    () => submitImageGeneration({
+      model: 'openai/not-real',
+      prompt: 'invalid',
+      aspectRatio: '1:1',
+    }, {
+      fetchImpl: async () => {
+        called = true;
+        throw new Error('should not be called');
+      },
+    }),
+    /Unsupported image model/,
+  );
+  assert.equal(called, false);
+});
+
+test('pollTaskDetail keeps polling until the task completes', async () => {
+  const calls = [];
+  const responses = [
+    { tasklist: [{ status: 'task_start', outputs: [] }], errors: [], result: true },
+    { tasklist: [{ status: 'task_postprocess_end', outputs: [{ url: 'https://cdn.example.com/done.png' }] }], errors: [], result: true },
+  ];
+  const fetchImpl = async (url, options) => {
+    calls.push({ url, options });
+    return {
+      ok: true,
+      async text() {
+        return JSON.stringify(responses.shift());
+      },
+    };
+  };
+
+  const task = await pollTaskDetail({ taskId: 'task-9', fetchImpl, pollIntervalMs: 0, maxAttempts: 3 });
+
+  assert.equal(task.status, 'task_postprocess_end');
+  assert.equal(calls.length, 2);
+  assert.equal(calls[0].url.endsWith('/Task/Detail'), true);
+  assert.equal(JSON.parse(calls[0].options.body).taskid, 'task-9');
+});
+
+test('pollTaskDetail rejects failed, unknown, and timed out tasks', async () => {
+  await assert.rejects(
+    () => pollTaskDetail({
+      taskId: 'task-fail',
+      fetchImpl: async () => ({
+        ok: true,
+        async text() {
+          return JSON.stringify({ tasklist: [{ status: 'task_error', debugerror: 'upstream failed', outputs: [] }], errors: [], result: true });
+        },
+      }),
+      pollIntervalMs: 0,
+      maxAttempts: 1,
+    }),
+    /upstream failed/,
+  );
+
+  await assert.rejects(
+    () => pollTaskDetail({
+      taskId: 'task-weird',
+      fetchImpl: async () => ({
+        ok: true,
+        async text() {
+          return JSON.stringify({ tasklist: [{ status: 'task_weird', outputs: [] }], errors: [], result: true });
+        },
+      }),
+      pollIntervalMs: 0,
+      maxAttempts: 1,
+    }),
+    /unknown status/,
+  );
+
+  await assert.rejects(
+    () => pollTaskDetail({
+      taskId: 'task-timeout',
+      fetchImpl: async () => ({
+        ok: true,
+        async text() {
+          return JSON.stringify({ tasklist: [{ status: 'task_start', outputs: [] }], errors: [], result: true });
+        },
+      }),
+      pollIntervalMs: 0,
+      maxAttempts: 1,
+    }),
+    /timed out/,
+  );
 });
 
 test('shouldCleanupGeneration only returns true for expired active assets', () => {
@@ -164,11 +416,16 @@ test('runMigration rejects when DATABASE_URL is missing', async () => {
 test('runMigration reads the SQL file and executes it with the configured client', async () => {
   const events = [];
   let clientConfig;
+  const reads = [];
 
   await runMigration({
     databaseUrl: 'postgres://db.example.com:5432/app?sslmode=require',
     nodeEnv: 'production',
-    readFile: async () => 'SELECT 1;',
+    readdir: async () => ['001_init.sql', '002_auth_sessions_and_dashboards.sql'],
+    readFile: async (filePath) => {
+      reads.push(filePath.split('/').pop());
+      return 'SELECT 1;';
+    },
     clientFactory: (config) => {
       clientConfig = config;
 
@@ -183,10 +440,14 @@ test('runMigration reads the SQL file and executes it with the configured client
 
   assert.equal(clientConfig.connectionString, 'postgres://db.example.com:5432/app?sslmode=require');
   assert.deepEqual(clientConfig.ssl, { rejectUnauthorized: false });
+  assert.deepEqual(reads, ['001_init.sql', '002_auth_sessions_and_dashboards.sql']);
   assert.deepEqual(events, [
     'connect',
     ['log', 'Connected to PostgreSQL'],
+    ['query', 'BEGIN'],
     ['query', 'SELECT 1;'],
+    ['query', 'SELECT 1;'],
+    ['query', 'COMMIT'],
     ['log', 'Migration applied successfully'],
     'end',
   ]);
@@ -199,6 +460,7 @@ test('runMigration preserves the original migration error if cleanup also fails'
     () => runMigration({
       databaseUrl: 'postgres://db.example.com:5432/app?sslmode=require',
       nodeEnv: 'production',
+      readdir: async () => ['001_init.sql'],
       readFile: async () => 'SELECT 1;',
       clientFactory: () => ({
         connect: async () => events.push('connect'),
@@ -219,5 +481,40 @@ test('runMigration preserves the original migration error if cleanup also fails'
     'connect',
     ['log', 'Connected to PostgreSQL'],
     ['error', 'Migration cleanup failed', 'end failed'],
+  ]);
+});
+
+test('runMigration rolls back when a later migration fails', async () => {
+  const events = [];
+
+  await assert.rejects(
+    () => runMigration({
+      databaseUrl: 'postgres://db.example.com:5432/app?sslmode=require',
+      nodeEnv: 'production',
+      readdir: async () => ['001_init.sql', '002_auth_sessions_and_dashboards.sql'],
+      readFile: async (_filePath) => 'SELECT 1;',
+      clientFactory: () => ({
+        connect: async () => events.push('connect'),
+        query: async (sql) => {
+          events.push(['query', sql]);
+          if (sql === 'SELECT 1;' && events.filter((event) => Array.isArray(event) && event[0] === 'query' && event[1] === 'SELECT 1;').length > 1) {
+            throw new Error('migration failed');
+          }
+        },
+        end: async () => events.push('end'),
+      }),
+      log: (message) => events.push(['log', message]),
+    }),
+    /migration failed/,
+  );
+
+  assert.deepEqual(events, [
+    'connect',
+    ['log', 'Connected to PostgreSQL'],
+    ['query', 'BEGIN'],
+    ['query', 'SELECT 1;'],
+    ['query', 'SELECT 1;'],
+    ['query', 'ROLLBACK'],
+    'end',
   ]);
 });

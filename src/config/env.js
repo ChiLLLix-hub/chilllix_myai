@@ -28,6 +28,7 @@ const env = {
   creditCostImage: toInt(process.env.CREDIT_COST_IMAGE, 10),
   creditCostVideo: toInt(process.env.CREDIT_COST_VIDEO, 35),
   creditCostChat: toInt(process.env.CREDIT_COST_CHAT, 3),
+  starterCredits: toInt(process.env.STARTER_CREDITS, 100),
 };
 
 env.isProduction = env.nodeEnv === 'production';
