@@ -47,7 +47,7 @@ const runMigration = async ({
     await client.query(sql);
     log('Migration applied successfully');
   } finally {
-    await client.end().catch(() => {});
+    await client.end();
   }
 };
 
