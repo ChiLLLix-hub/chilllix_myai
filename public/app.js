@@ -14,7 +14,7 @@ const MODEL_CATALOG = {
         sizeOptions: ['auto', '1:1', '3:2', '2:3'],
         cta: 'Open Creator',
         available: true,
-        hero: 'linear-gradient(135deg, rgba(30, 41, 59, 0.15), rgba(8, 145, 178, 0.12)), url(https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=1200&q=80)',
+        hero: 'linear-gradient(135deg, rgba(6, 182, 212, 0.35), rgba(37, 99, 235, 0.18) 45%, rgba(15, 23, 42, 0.92))',
       },
       {
         id: 'openai/gpt-image-2',
@@ -27,7 +27,7 @@ const MODEL_CATALOG = {
         sizeOptions: ['auto', '1:1', '3:2', '2:3'],
         cta: 'Open Creator',
         available: true,
-        hero: 'linear-gradient(135deg, rgba(59, 130, 246, 0.16), rgba(124, 58, 237, 0.18)), url(https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1200&q=80)',
+        hero: 'linear-gradient(135deg, rgba(168, 85, 247, 0.38), rgba(244, 63, 94, 0.18) 45%, rgba(15, 23, 42, 0.92))',
       },
     ],
   },
@@ -102,6 +102,8 @@ const state = {
   activeAction: 'image',
   selectedModel: null,
 };
+
+const IMPLEMENTED_CREATOR_TYPES = new Set(['image']);
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => Array.from(document.querySelectorAll(selector));
@@ -295,6 +297,12 @@ const setTopAction = (action) => {
 };
 
 const openCreatorForCategory = (category, promptText = '') => {
+  setTopAction(category);
+  if (!IMPLEMENTED_CREATOR_TYPES.has(category)) {
+    alert(`${category.charAt(0).toUpperCase() + category.slice(1)} creator is not available yet.`);
+    return;
+  }
+
   const catalog = MODEL_CATALOG[category];
   const selected = catalog?.models.find((model) => model.available);
   if (!selected) {
@@ -302,7 +310,6 @@ const openCreatorForCategory = (category, promptText = '') => {
     return;
   }
 
-  setTopAction(category);
   populateCreator(selected);
   if (promptText) $('#prompt').value = promptText;
 };
