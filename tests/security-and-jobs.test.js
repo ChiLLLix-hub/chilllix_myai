@@ -7,6 +7,8 @@ const { resolveGenerationCosts, calculateExpiryDate, resolveRequestedModel, pers
 const { buildImageFields, ensureSupportedSize, extractOutputUrl, pollTaskDetail, submitAsyncRun, submitImageGeneration } = require('../src/services/wiro.service');
 const { shouldCleanupGeneration } = require('../src/jobs/cleanup.job');
 const { buildSslConfig, runMigration } = require('../src/scripts/run-migration');
+const { parseCookies, getAuthTokenFromRequest } = require('../src/utils/auth-cookie');
+const { parseLocation } = require('../src/utils/request-context');
 
 test('cleanString strips HTML and normalizes whitespace', () => {
   assert.equal(cleanString(' <script>alert(1)</script> hi   there '), 'hi there');
@@ -18,6 +20,17 @@ test('cleanStringArray keeps only cleaned non-empty tags', () => {
 
 test('cleanJson recursively sanitizes nested values', () => {
   assert.deepEqual(cleanJson({ prompt: '<img src=x onerror=1>sky', nested: [' a ', '<b>b</b>'] }), { prompt: 'sky', nested: ['a', 'b'] });
+});
+
+test('auth cookie helpers parse cookies and prefer bearer tokens', () => {
+  assert.deepEqual(parseCookies('a=1; chilllix_session=test-token'), { a: '1', chilllix_session: 'test-token' });
+  assert.equal(getAuthTokenFromRequest({ headers: { cookie: 'chilllix_session=test-token' } }), 'test-token');
+  assert.equal(getAuthTokenFromRequest({ headers: { authorization: 'Bearer'.concat(' api-token'), cookie: 'chilllix_session=test-token' } }), 'api-token');
+});
+
+test('parseLocation only accepts finite coordinates', () => {
+  assert.deepEqual(parseLocation({ latitude: 1.234567, longitude: 2.345678 }), { latitude: 1.234567, longitude: 2.345678 });
+  assert.deepEqual(parseLocation({ latitude: 'bad', longitude: null }), { latitude: null, longitude: null });
 });
 
 test('resolveGenerationCosts respects configured settings', () => {
@@ -402,11 +415,16 @@ test('runMigration rejects when DATABASE_URL is missing', async () => {
 test('runMigration reads the SQL file and executes it with the configured client', async () => {
   const events = [];
   let clientConfig;
+  const reads = [];
 
   await runMigration({
     databaseUrl: 'postgres://db.example.com:5432/app?sslmode=require',
     nodeEnv: 'production',
-    readFile: async () => 'SELECT 1;',
+    readdir: async () => ['001_init.sql', '002_auth_sessions_and_dashboards.sql'],
+    readFile: async (filePath) => {
+      reads.push(filePath.split('/').pop());
+      return 'SELECT 1;';
+    },
     clientFactory: (config) => {
       clientConfig = config;
 
@@ -421,9 +439,11 @@ test('runMigration reads the SQL file and executes it with the configured client
 
   assert.equal(clientConfig.connectionString, 'postgres://db.example.com:5432/app?sslmode=require');
   assert.deepEqual(clientConfig.ssl, { rejectUnauthorized: false });
+  assert.deepEqual(reads, ['001_init.sql', '002_auth_sessions_and_dashboards.sql']);
   assert.deepEqual(events, [
     'connect',
     ['log', 'Connected to PostgreSQL'],
+    ['query', 'SELECT 1;'],
     ['query', 'SELECT 1;'],
     ['log', 'Migration applied successfully'],
     'end',
@@ -437,6 +457,7 @@ test('runMigration preserves the original migration error if cleanup also fails'
     () => runMigration({
       databaseUrl: 'postgres://db.example.com:5432/app?sslmode=require',
       nodeEnv: 'production',
+      readdir: async () => ['001_init.sql'],
       readFile: async () => 'SELECT 1;',
       clientFactory: () => ({
         connect: async () => events.push('connect'),

@@ -1,4 +1,5 @@
 const { verifyAccessToken } = require('../utils/jwt');
+const { AUTH_COOKIE_NAME, parseCookies } = require('../utils/auth-cookie');
 
 let io = null;
 
@@ -7,7 +8,8 @@ const registerSocketServer = (socketServer) => {
 
   io.use((socket, next) => {
     try {
-      const token = socket.handshake.auth?.token;
+      const token = socket.handshake.auth?.token
+        || parseCookies(socket.handshake.headers.cookie || '')[AUTH_COOKIE_NAME];
       if (!token) return next(new Error('Unauthorized socket'));
       socket.user = verifyAccessToken(token);
       return next();

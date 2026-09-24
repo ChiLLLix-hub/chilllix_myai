@@ -33,85 +33,40 @@ const MODEL_CATALOG = {
   },
   video: {
     title: 'Choose a video model',
-    description: 'Video model cards are ready in the UI and can be wired to creation flows next.',
+    description: 'Video model cards are reserved for the next integration phase.',
     models: [
-      {
-        id: 'video-coming-soon-1',
-        type: 'video',
-        provider: 'Wiro',
-        name: 'Video Studio',
-        blurb: 'Reserved slot for the first production video workflow.',
-        badge: 'Coming Soon',
-        meta: 'Video integration next step',
-        cta: 'Coming Soon',
-        available: false,
-        hero: 'linear-gradient(135deg, rgba(14, 116, 144, 0.55), rgba(15, 23, 42, 0.9))',
-      },
-      {
-        id: 'video-coming-soon-2',
-        type: 'video',
-        provider: 'Wiro',
-        name: 'Motion Pro',
-        blurb: 'Prepared catalog slot for cinematic video generation models.',
-        badge: 'Coming Soon',
-        meta: 'Video integration next step',
-        cta: 'Coming Soon',
-        available: false,
-        hero: 'linear-gradient(135deg, rgba(91, 33, 182, 0.55), rgba(15, 23, 42, 0.9))',
-      },
+      { id: 'video-coming-soon-1', type: 'video', provider: 'Wiro', name: 'Video Studio', blurb: 'Prepared for future video generation workflows.', badge: 'Coming Soon', meta: 'Video integration next step', cta: 'Coming Soon', available: false, hero: 'linear-gradient(135deg, rgba(14, 116, 144, 0.55), rgba(15, 23, 42, 0.9))' },
+      { id: 'video-coming-soon-2', type: 'video', provider: 'Wiro', name: 'Motion Pro', blurb: 'Prepared slot for cinematic video models.', badge: 'Coming Soon', meta: 'Video integration next step', cta: 'Coming Soon', available: false, hero: 'linear-gradient(135deg, rgba(91, 33, 182, 0.55), rgba(15, 23, 42, 0.9))' },
     ],
   },
   chat: {
     title: 'Choose a chat model',
-    description: 'Chat model cards are in place so the creator flow can be connected after image rollout.',
+    description: 'Chat model cards are reserved for the next integration phase.',
     models: [
-      {
-        id: 'chat-coming-soon-1',
-        type: 'chat',
-        provider: 'Wiro',
-        name: 'Chat Assistant',
-        blurb: 'Reserved slot for a focused chat generation experience.',
-        badge: 'Coming Soon',
-        meta: 'Chat integration next step',
-        cta: 'Coming Soon',
-        available: false,
-        hero: 'linear-gradient(135deg, rgba(22, 163, 74, 0.45), rgba(15, 23, 42, 0.9))',
-      },
-      {
-        id: 'chat-coming-soon-2',
-        type: 'chat',
-        provider: 'Wiro',
-        name: 'Reasoning Agent',
-        blurb: 'Prepared slot for future conversational model routing.',
-        badge: 'Coming Soon',
-        meta: 'Chat integration next step',
-        cta: 'Coming Soon',
-        available: false,
-        hero: 'linear-gradient(135deg, rgba(249, 115, 22, 0.45), rgba(15, 23, 42, 0.9))',
-      },
+      { id: 'chat-coming-soon-1', type: 'chat', provider: 'Wiro', name: 'Chat Assistant', blurb: 'Prepared for conversational model routing.', badge: 'Coming Soon', meta: 'Chat integration next step', cta: 'Coming Soon', available: false, hero: 'linear-gradient(135deg, rgba(22, 163, 74, 0.45), rgba(15, 23, 42, 0.9))' },
+      { id: 'chat-coming-soon-2', type: 'chat', provider: 'Wiro', name: 'Reasoning Agent', blurb: 'Prepared slot for future reasoning models.', badge: 'Coming Soon', meta: 'Chat integration next step', cta: 'Coming Soon', available: false, hero: 'linear-gradient(135deg, rgba(249, 115, 22, 0.45), rgba(15, 23, 42, 0.9))' },
     ],
   },
 };
 
-const IMPLEMENTED_CREATOR_TYPES = new Set(['image']);
-const STORAGE_KEYS = Object.freeze({ token: 'chilllix.token' });
 const DEFAULT_CREDIT_COSTS = Object.freeze({ image: 10, video: 35, chat: 3 });
+const IMPLEMENTED_CREATOR_TYPES = new Set(['image']);
 
 let socketInstance = null;
-let adminSearchDebounce = null;
 
 const state = {
-  token: '',
   user: null,
+  dashboard: null,
   creditsBalance: 0,
   creditCosts: { ...DEFAULT_CREDIT_COSTS },
   savedPrompts: [],
   assets: [],
-  adminUsers: [],
-  activeDrawer: 'workspace',
+  transactions: [],
+  activeDrawer: 'dashboard',
   activeAction: 'image',
   workspaceAction: 'image',
   selectedModel: null,
+  drawerOpen: false,
 };
 
 const $ = (selector) => document.querySelector(selector);
@@ -123,14 +78,22 @@ const createElement = (tag, className, text) => {
   return element;
 };
 
+const formatDate = (value) => value ? new Date(value).toLocaleString() : '—';
+const formatCoordinates = (details = {}) => {
+  const lat = details?.latitude ?? details?.lastLoginLatitude ?? null;
+  const lng = details?.longitude ?? details?.lastLoginLongitude ?? null;
+  if (lat === null || lng === null || lat === undefined || lng === undefined) return 'No coordinates saved';
+  return `${Number(lat).toFixed(4)}, ${Number(lng).toFixed(4)}`;
+};
+
 const showAuthFeedback = (message = '') => {
   const element = $('#auth-feedback');
   element.textContent = message;
   element.classList.toggle('hidden', !message);
 };
 
-const showAdminFeedback = (message = '', tone = 'info') => {
-  const element = $('#admin-feedback');
+const showSettingsFeedback = (message = '', tone = 'info') => {
+  const element = $('#settings-feedback');
   element.textContent = message;
   element.classList.remove('hidden', 'border-red-400/30', 'bg-red-500/10', 'text-red-200', 'border-cyan-400/30', 'bg-cyan-500/10', 'text-cyan-100');
   if (!message) {
@@ -144,10 +107,44 @@ const showAdminFeedback = (message = '', tone = 'info') => {
   element.classList.add('border-cyan-400/30', 'bg-cyan-500/10', 'text-cyan-100');
 };
 
+const api = async (path, options = {}) => {
+  const headers = { ...(options.headers || {}) };
+  if (!(options.body instanceof FormData) && !headers['Content-Type']) {
+    headers['Content-Type'] = 'application/json';
+  }
+  const response = await fetch(path, { credentials: 'same-origin', ...options, headers });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const error = new Error(payload.error || 'Request failed');
+    error.status = response.status;
+    throw error;
+  }
+  return payload;
+};
+
+const getClientLocation = async () => new Promise((resolve) => {
+  if (!navigator.geolocation) {
+    resolve({ latitude: null, longitude: null });
+    return;
+  }
+  navigator.geolocation.getCurrentPosition(
+    ({ coords }) => resolve({ latitude: Number(coords.latitude.toFixed(6)), longitude: Number(coords.longitude.toFixed(6)) }),
+    () => resolve({ latitude: null, longitude: null }),
+    { enableHighAccuracy: false, timeout: 5000, maximumAge: 60 * 1000 },
+  );
+});
+
+const setDrawerOpen = (open) => {
+  state.drawerOpen = open;
+  $('#drawer').classList.toggle('drawer-open', open || window.innerWidth >= 1024);
+  $('#drawer-overlay').classList.toggle('hidden', !open || window.innerWidth >= 1024);
+};
+
 const syncCreditsBalance = () => {
   const value = String(state.creditsBalance || 0);
   $('#credits-balance').textContent = value;
   $('#pricing-credits-balance').textContent = value;
+  $('#dashboard-credits').textContent = value;
 };
 
 const updateSessionUI = () => {
@@ -155,63 +152,38 @@ const updateSessionUI = () => {
   $('#session-email').textContent = state.user?.email || '';
   $('#session-role').textContent = state.user?.role || '';
   $('#session-banner').textContent = state.user
-    ? `Signed in as ${state.user.email}`
-    : 'Select a model, then open the creator.';
-  $('#admin-drawer-btn').classList.toggle('hidden', state.user?.role !== 'admin');
+    ? `Signed in as ${state.user.email}. Cookie session active.`
+    : 'Select a model and generate securely.';
 };
 
 const showAuthScreen = () => {
   $('#auth-screen').classList.remove('hidden');
   $('#app-shell').classList.add('hidden');
-  $$('#generate-submit, #save-prompt-btn, [data-select-model]').forEach((element) => {
-    element.disabled = true;
-  });
-  requestAnimationFrame(() => {
-    $('#signin-email')?.focus();
-  });
+  requestAnimationFrame(() => $('#signin-email')?.focus());
 };
 
 const showAppShell = () => {
   $('#auth-screen').classList.add('hidden');
   $('#app-shell').classList.remove('hidden');
-  renderModelCards();
-  $$('#generate-submit, #save-prompt-btn, [data-select-model]').forEach((element) => {
-    if (element.matches('[data-select-model]')) {
-      const unavailable = element.closest('.model-card')?.dataset.disabled === 'true';
-      element.disabled = unavailable;
-      return;
-    }
-    element.disabled = false;
-  });
 };
 
-const clearSession = ({ showAuth = true } = {}) => {
-  state.token = '';
+const clearSession = async () => {
   state.user = null;
+  state.dashboard = null;
   state.creditsBalance = 0;
   state.creditCosts = { ...DEFAULT_CREDIT_COSTS };
   state.savedPrompts = [];
   state.assets = [];
-  state.adminUsers = [];
+  state.transactions = [];
   socketInstance?.disconnect();
   socketInstance = null;
-  localStorage.removeItem(STORAGE_KEYS.token);
   updateSessionUI();
-  renderModelCards();
+  renderDashboard();
   renderAssets();
   renderPrompts();
-  renderAdminUsers([]);
-  if (showAuth) showAuthScreen();
-};
-
-const applyAuthPayload = (payload) => {
-  state.token = payload.token;
-  state.user = payload.user;
-  state.creditsBalance = payload.user?.creditsBalance || 0;
-  localStorage.setItem(STORAGE_KEYS.token, payload.token);
-  updateSessionUI();
-  showAppShell();
-  connectSocket();
+  renderTransactions();
+  renderSettings();
+  showAuthScreen();
 };
 
 const syncProfile = (profile) => {
@@ -219,51 +191,48 @@ const syncProfile = (profile) => {
   state.creditsBalance = profile.creditsBalance || 0;
   state.creditCosts = { ...DEFAULT_CREDIT_COSTS, ...(profile.creditCosts || {}) };
   updateSessionUI();
-  if (state.user?.role !== 'admin' && state.activeDrawer === 'admin') {
-    setActiveDrawer('workspace');
-  }
 };
 
 const connectSocket = () => {
-  if (!window.io || !state.token) return;
+  if (!window.io || !state.user) return;
   socketInstance?.disconnect();
-  socketInstance = window.io({ auth: { token: state.token } });
+  socketInstance = window.io({ withCredentials: true });
   socketInstance.on('generation:update', async (payload) => {
     updatePreview(payload);
-    if (payload.status === 'completed' || payload.status === 'failed') {
-      await Promise.allSettled([loadProfile(), loadGenerations()]);
+    if (['completed', 'failed'].includes(payload.status)) {
+      await Promise.allSettled([loadDashboard(), loadPrompts(), loadGenerations()]);
     }
   });
 };
 
-const api = async (path, options = {}) => {
-  const headers = { ...(options.headers || {}) };
-  if (!(options.body instanceof FormData) && !headers['Content-Type']) {
-    headers['Content-Type'] = 'application/json';
-  }
-  if (state.token) {
-    headers.Authorization = 'Bearer ' + state.token;
-  }
-
-  const response = await fetch(path, { ...options, headers });
-  const payload = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    const error = new Error(payload.error || 'Request failed');
-    error.status = response.status;
-    error.payload = payload;
-    if (response.status === 401) clearSession();
-    throw error;
-  }
-  return payload;
+const showSection = (sectionId) => {
+  $$('.content-section').forEach((section) => section.classList.add('hidden'));
+  $(`#${sectionId}`)?.classList.remove('hidden');
+  $$('.drawer-btn').forEach((button) => {
+    const active = button.dataset.drawer === state.activeDrawer;
+    button.classList.toggle('active', active);
+    button.setAttribute('aria-pressed', String(active));
+  });
+  $$('.topbar-btn').forEach((button) => {
+    const active = button.dataset.action === state.activeAction;
+    button.classList.toggle('active', active);
+    button.setAttribute('aria-pressed', String(active));
+  });
 };
 
-const focusFirstCatalogAction = () => {
-  const firstAction = document.querySelector('[data-select-model]:not([disabled])');
-  firstAction?.focus();
+const setActiveDrawer = async (drawer) => {
+  state.activeDrawer = drawer;
+  if (drawer === 'workspace') {
+    state.activeAction = state.workspaceAction;
+  } else if (drawer === 'payments') {
+    state.activeAction = 'payments';
+  }
+  showSection(drawer);
+  if (window.innerWidth < 1024) setDrawerOpen(false);
 };
 
 const updateActionHeader = () => {
-  const current = MODEL_CATALOG[state.activeAction];
+  const current = MODEL_CATALOG[state.activeAction] || MODEL_CATALOG.image;
   $('#catalog-kicker').textContent = state.activeAction === 'chat' ? 'AI chat' : `Generate ${state.activeAction}`;
   $('#catalog-title').textContent = current.title;
   $('#catalog-description').textContent = current.description;
@@ -271,44 +240,69 @@ const updateActionHeader = () => {
 
 const renderModelCards = () => {
   const grid = $('#model-card-grid');
-  const catalog = MODEL_CATALOG[state.activeAction];
+  const catalog = MODEL_CATALOG[state.activeAction] || MODEL_CATALOG.image;
   grid.innerHTML = '';
-
   catalog.models.forEach((model) => {
     const card = createElement('article', 'model-card');
-    card.dataset.modelId = model.id;
-    card.dataset.disabled = String(!model.available);
-
     const hero = createElement('div', 'model-card-hero');
     hero.style.backgroundImage = model.hero;
-
     const body = createElement('div', 'model-card-body');
     body.appendChild(createElement('span', 'model-card-badge', model.badge));
     body.appendChild(createElement('h3', 'text-2xl font-semibold', model.name));
     body.appendChild(createElement('p', 'text-sm uppercase tracking-[0.2em] text-slate-500', model.provider));
     body.appendChild(createElement('p', 'text-sm leading-6 text-slate-400', model.blurb));
     body.appendChild(createElement('p', 'text-xs uppercase tracking-[0.24em] text-slate-500', model.meta));
-
-    const action = createElement('button', 'model-card-btn text-sm', model.cta);
-    action.type = 'button';
-    action.dataset.selectModel = model.id;
-    action.disabled = !state.token || !model.available;
-    body.appendChild(action);
-
+    const button = createElement('button', 'model-card-btn text-sm', model.cta);
+    button.type = 'button';
+    button.dataset.selectModel = model.id;
+    button.disabled = !model.available;
+    body.appendChild(button);
     card.append(hero, body);
     grid.appendChild(card);
   });
 };
 
+const renderDashboardList = (containerId, items, renderer, emptyText) => {
+  const container = $(containerId);
+  container.innerHTML = '';
+  if (!items?.length) {
+    container.appendChild(createElement('div', 'activity-card text-sm text-slate-400', emptyText));
+    return;
+  }
+  items.forEach((item) => container.appendChild(renderer(item)));
+};
+
+const renderDashboard = () => {
+  $('#dashboard-generations').textContent = String(state.dashboard?.stats?.totalGenerations || 0);
+  $('#dashboard-success').textContent = String(state.dashboard?.stats?.successfulGenerations || 0);
+  $('#dashboard-prompts').textContent = String(state.dashboard?.stats?.savedPrompts || 0);
+
+  renderDashboardList('#dashboard-logins', state.dashboard?.recentLogins, (log) => {
+    const card = createElement('article', 'activity-card');
+    card.appendChild(createElement('p', 'font-medium', `${log.action.replaceAll('.', ' ')}`));
+    card.appendChild(createElement('p', 'mt-2 text-sm text-slate-400', `${formatDate(log.createdAt)} · ${log.ipAddress || 'No IP'}`));
+    card.appendChild(createElement('p', 'mt-1 text-xs text-slate-500', formatCoordinates(log.details)));
+    return card;
+  }, 'No login trace yet.');
+
+  renderDashboardList('#dashboard-activity', state.dashboard?.recentGenerations, (generation) => {
+    const card = createElement('article', 'activity-card');
+    card.appendChild(createElement('p', 'font-medium', `${generation.type.toUpperCase()} · ${generation.status}`));
+    card.appendChild(createElement('p', 'mt-2 text-sm text-slate-400', generation.modelUsed || 'Model pending'));
+    const prompt = createElement('p', 'mt-1 text-xs text-slate-500', generation.prompt);
+    prompt.title = generation.prompt;
+    card.appendChild(prompt);
+    return card;
+  }, 'No generation history yet.');
+};
+
 const renderAssets = () => {
   const grid = $('#asset-grid');
   grid.innerHTML = '';
-
   if (!state.assets.length) {
-    grid.appendChild(createElement('div', 'rounded-3xl border border-dashed border-white/10 bg-slate-900/50 p-6 text-sm text-slate-400', 'No generations yet. Sign in and create your first image model run.'));
+    grid.appendChild(createElement('div', 'activity-card text-sm text-slate-400', 'No generation history yet.'));
     return;
   }
-
   state.assets.forEach((asset) => {
     const card = createElement('article', 'glass rounded-3xl p-4');
     if (asset.outputUrl) {
@@ -316,25 +310,13 @@ const renderAssets = () => {
       image.src = asset.outputUrl;
       image.alt = asset.prompt;
       card.appendChild(image);
-    } else {
-      const placeholder = createElement('div', 'mb-3 flex h-40 w-full items-center justify-center rounded-2xl border border-dashed border-white/10 bg-slate-900/60 px-4 text-center text-sm text-slate-300', 'Output is still processing or unavailable.');
-      card.appendChild(placeholder);
     }
-
-    const title = createElement('p', 'text-sm font-medium', `${asset.type.toUpperCase()} · ${asset.status}`);
-    const prompt = createElement('p', 'mt-2 text-xs text-slate-400', asset.prompt.slice(0, 100));
+    card.appendChild(createElement('p', 'text-sm font-medium', `${asset.type.toUpperCase()} · ${asset.status}`));
+    card.appendChild(createElement('p', 'mt-2 text-sm text-slate-400', asset.modelUsed || 'Model not recorded'));
+    const prompt = createElement('p', 'mt-2 text-xs text-slate-500', asset.prompt);
     prompt.title = asset.prompt;
-
-    const footer = createElement('div', 'mt-3 flex items-center justify-between text-xs text-slate-400');
-    footer.appendChild(createElement('span', '', new Date(asset.createdAt).toLocaleString()));
-    if (asset.outputUrl) {
-      const download = createElement('a', 'text-cyan-300', 'Download');
-      download.href = asset.outputUrl;
-      download.download = '';
-      footer.appendChild(download);
-    }
-
-    card.append(title, prompt, footer);
+    card.appendChild(prompt);
+    card.appendChild(createElement('p', 'mt-3 text-xs text-slate-500', formatDate(asset.createdAt)));
     grid.appendChild(card);
   });
 };
@@ -342,104 +324,60 @@ const renderAssets = () => {
 const renderPrompts = (items = state.savedPrompts) => {
   const list = $('#saved-prompts-list');
   list.innerHTML = '';
-
   if (!items.length) {
-    list.appendChild(createElement('div', 'rounded-3xl border border-dashed border-white/10 bg-slate-900/50 p-6 text-sm text-slate-400', 'Saved prompts will appear here after you store them from the creator.'));
+    list.appendChild(createElement('div', 'activity-card text-sm text-slate-400', 'No saved prompts yet.'));
     return;
   }
-
   items.forEach((item) => {
-    const row = createElement('article', 'glass rounded-3xl p-4');
-    const wrapper = createElement('div', 'flex items-start justify-between gap-4');
-    const content = createElement('div');
-    content.appendChild(createElement('p', 'font-medium', item.title));
-    content.appendChild(createElement('p', 'mt-1 text-sm text-slate-400', item.promptText));
-
-    const tags = createElement('div', 'mt-2 flex flex-wrap gap-2 text-xs text-cyan-300');
-    (item.tags || []).forEach((tag) => tags.appendChild(createElement('span', '', `#${tag}`)));
-    content.appendChild(tags);
-
-    const useButton = createElement('button', 'secondary-btn text-xs', 'Use Prompt');
-    useButton.type = 'button';
-    useButton.dataset.usePrompt = item.id;
-
-    wrapper.append(content, useButton);
-    row.appendChild(wrapper);
+    const row = createElement('article', 'activity-card');
+    row.appendChild(createElement('p', 'font-medium', item.title));
+    row.appendChild(createElement('p', 'mt-1 text-sm text-slate-400', item.promptText));
+    row.appendChild(createElement('p', 'mt-2 text-xs uppercase tracking-[0.24em] text-slate-500', item.category));
+    const button = createElement('button', 'secondary-btn mt-3 text-xs', 'Use Prompt');
+    button.type = 'button';
+    button.dataset.usePrompt = item.id;
+    row.appendChild(button);
     list.appendChild(row);
   });
 };
 
-const renderAdminUsers = (users = state.adminUsers) => {
-  const list = $('#admin-user-list');
+const renderTransactions = () => {
+  const list = $('#payment-list');
   list.innerHTML = '';
-
-  if (!users.length) {
-    list.appendChild(createElement('div', 'rounded-3xl border border-dashed border-white/10 bg-slate-900/50 p-6 text-sm text-slate-400', 'No users matched the current search.'));
+  if (!state.transactions.length) {
+    list.appendChild(createElement('div', 'activity-card text-sm text-slate-400', 'No payment transactions yet.'));
     return;
   }
-
-  users.forEach((user) => {
-    const card = createElement('article', 'admin-user-card');
-    card.dataset.userId = user.id;
-
-    const header = createElement('div', 'flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between');
-    const identity = createElement('div');
-    identity.appendChild(createElement('p', 'font-medium text-slate-100', user.email));
-    identity.appendChild(createElement('p', 'text-xs uppercase tracking-[0.24em] text-slate-500', `Created ${new Date(user.createdAt).toLocaleDateString()}`));
-    const badges = createElement('div', 'flex flex-wrap gap-2 text-xs');
-    badges.appendChild(createElement('span', 'selected-model-chip', user.role));
-    badges.appendChild(createElement('span', 'selected-model-chip', user.isSuspended ? 'Suspended' : 'Active'));
-    header.append(identity, badges);
-
-    const form = createElement('form', 'admin-user-form');
-    form.dataset.userForm = user.id;
-
-    const creditsLabel = createElement('label', 'space-y-2 text-sm text-slate-300');
-    creditsLabel.appendChild(createElement('span', '', 'Credits'));
-    const creditsInput = createElement('input', 'input w-full');
-    creditsInput.type = 'number';
-    creditsInput.min = '0';
-    creditsInput.name = 'creditsBalance';
-    creditsInput.value = String(user.creditsBalance || 0);
-    creditsLabel.appendChild(creditsInput);
-
-    const roleLabel = createElement('label', 'space-y-2 text-sm text-slate-300');
-    roleLabel.appendChild(createElement('span', '', 'Role'));
-    const roleSelect = createElement('select', 'input w-full');
-    roleSelect.name = 'role';
-    ['user', 'admin'].forEach((role) => {
-      const option = createElement('option', '', role);
-      option.value = role;
-      option.selected = role === user.role;
-      roleSelect.appendChild(option);
-    });
-    roleLabel.appendChild(roleSelect);
-
-    const suspendedLabel = createElement('label', 'space-y-2 text-sm text-slate-300');
-    suspendedLabel.appendChild(createElement('span', '', 'Status'));
-    const suspendedSelect = createElement('select', 'input w-full');
-    suspendedSelect.name = 'isSuspended';
-    [['false', 'Active'], ['true', 'Suspended']].forEach(([value, text]) => {
-      const option = createElement('option', '', text);
-      option.value = value;
-      option.selected = String(user.isSuspended) === value;
-      suspendedSelect.appendChild(option);
-    });
-    suspendedLabel.appendChild(suspendedSelect);
-
-    const saveButton = createElement('button', 'primary-btn', 'Save');
-    saveButton.type = 'submit';
-
-    form.append(creditsLabel, roleLabel, suspendedLabel, saveButton);
-    card.append(header, form);
+  state.transactions.forEach((item) => {
+    const card = createElement('article', 'activity-card');
+    card.appendChild(createElement('p', 'font-medium', `${item.gateway} · ${item.paymentStatus}`));
+    card.appendChild(createElement('p', 'mt-2 text-sm text-slate-400', `${item.currency} ${item.amount} · ${item.creditsAdded} credits`));
+    card.appendChild(createElement('p', 'mt-1 text-xs text-slate-500', formatDate(item.createdAt)));
     list.appendChild(card);
   });
+};
+
+const renderSettings = () => {
+  $('#settings-avatar').value = state.user?.avatarUrl || '';
+  $('#settings-account').innerHTML = `
+    <p><strong>Email:</strong> ${state.user?.email || '—'}</p>
+    <p><strong>Last Login:</strong> ${formatDate(state.user?.lastLoginAt)}</p>
+    <p><strong>Last Login IP:</strong> ${state.user?.lastLoginIp || '—'}</p>
+    <p><strong>Last Coordinates:</strong> ${formatCoordinates(state.user || {})}</p>
+    <p><strong>Temporary Lock:</strong> ${state.user?.lockedUntil ? formatDate(state.user.lockedUntil) : 'Not locked'}</p>
+  `;
+  renderDashboardList('#settings-security', state.dashboard?.recentLogins, (log) => {
+    const card = createElement('article', 'activity-card');
+    card.appendChild(createElement('p', 'font-medium', log.action));
+    card.appendChild(createElement('p', 'mt-2 text-sm text-slate-400', `${formatDate(log.createdAt)} · ${log.ipAddress || 'No IP'}`));
+    return card;
+  }, 'No security events yet.');
 };
 
 const updatePreview = ({ status, progress = 0, outputUrl } = {}) => {
   $('#generation-status').textContent = status || 'Idle';
   $('#progress-bar').style.width = `${progress}%`;
-  $('#skeleton-loader').classList.toggle('hidden', status === 'completed' || status === 'idle' || !status);
+  $('#skeleton-loader').classList.toggle('hidden', !status || status === 'completed' || status === 'idle');
   if (outputUrl) {
     $('#preview-placeholder').classList.add('hidden');
     $('#preview-image').src = outputUrl;
@@ -476,7 +414,6 @@ const populateCreator = (model) => {
   $('#creator-model-meta').textContent = model.meta;
   $('#selected-model-chip').textContent = model.badge;
   $('#generate-submit').textContent = `Generate with ${model.name}`;
-
   const sizeSelect = $('#aspect-ratio');
   sizeSelect.innerHTML = '';
   (model.sizeOptions || ['auto']).forEach((size) => {
@@ -484,9 +421,8 @@ const populateCreator = (model) => {
     option.value = size;
     sizeSelect.appendChild(option);
   });
-
   const requiredCredits = state.creditCosts[model.type] || 0;
-  updateCreditWarning(state.creditsBalance < requiredCredits ? `This ${model.type} generation needs ${requiredCredits} credits. Add more credits before starting.` : '');
+  updateCreditWarning(state.creditsBalance < requiredCredits ? `This ${model.type} generation needs ${requiredCredits} credits.` : '');
   $('#catalog-view').classList.add('hidden');
   $('#creator-view').classList.remove('hidden');
   resetPreview();
@@ -498,77 +434,38 @@ const returnToCatalog = () => {
   $('#creator-view').classList.add('hidden');
   $('#catalog-view').classList.remove('hidden');
   updateCreditWarning('');
-  focusFirstCatalogAction();
-};
-
-const showSection = (sectionId) => {
-  $$('.content-section').forEach((section) => section.classList.add('hidden'));
-  $(`#${sectionId}`)?.classList.remove('hidden');
-  $$('.drawer-btn').forEach((button) => {
-    const isActive = button.dataset.drawer === state.activeDrawer;
-    button.classList.toggle('active', isActive);
-    button.setAttribute('aria-pressed', String(isActive));
-  });
-  $$('.topbar-btn').forEach((button) => {
-    const isActive = button.dataset.action === state.activeAction;
-    button.classList.toggle('active', isActive);
-    button.setAttribute('aria-pressed', String(isActive));
-  });
-};
-
-const setActiveDrawer = async (drawer) => {
-  if (drawer === 'admin' && state.user?.role !== 'admin') return;
-  state.activeDrawer = drawer;
-  if (drawer === 'workspace') {
-    state.activeAction = state.workspaceAction;
-    updateActionHeader();
-    renderModelCards();
-  } else if (drawer === 'library') {
-    await loadGenerations();
-  } else if (drawer === 'prompts') {
-    await loadPrompts();
-  } else if (drawer === 'admin') {
-    await loadAdminView();
-  } else {
-    state.activeAction = null;
-  }
-  showSection(drawer);
 };
 
 const setTopAction = (action) => {
-  state.activeAction = action;
-  if (action === 'pricing') {
-    state.activeDrawer = 'pricing';
-    showSection('pricing');
+  if (action === 'payments') {
+    state.activeAction = 'payments';
+    setActiveDrawer('payments');
     return;
   }
+  state.activeAction = action;
   state.workspaceAction = action;
-  state.activeDrawer = 'workspace';
   updateActionHeader();
   renderModelCards();
   returnToCatalog();
-  showSection('workspace');
-};
-
-const openCreatorForCategory = (category, promptText = '') => {
-  if (!IMPLEMENTED_CREATOR_TYPES.has(category)) {
-    alert(`${category.charAt(0).toUpperCase() + category.slice(1)} creator is not available yet.`);
-    return;
-  }
-  setTopAction(category);
-  const selected = MODEL_CATALOG[category]?.models.find((model) => model.available);
-  if (!selected) {
-    alert(`No ${category} creator is available yet.`);
-    return;
-  }
-  populateCreator(selected);
-  if (promptText) $('#prompt').value = promptText;
+  setActiveDrawer('workspace');
 };
 
 const loadProfile = async () => {
   const profile = await api('/api/profile');
   syncProfile(profile);
-  return profile;
+};
+
+const loadDashboard = async () => {
+  state.dashboard = await api('/api/profile/dashboard');
+  syncProfile(state.dashboard.profile);
+  state.transactions = state.dashboard.recentTransactions || [];
+  state.assets = state.dashboard.recentGenerations || [];
+  state.savedPrompts = state.dashboard.recentPrompts || [];
+  renderDashboard();
+  renderAssets();
+  renderPrompts();
+  renderTransactions();
+  renderSettings();
 };
 
 const loadPrompts = async () => {
@@ -581,71 +478,47 @@ const loadGenerations = async () => {
   renderAssets();
 };
 
-const loadAdminView = async () => {
-  if (state.user?.role !== 'admin') return;
-  const overview = await api('/api/admin/overview');
-  $('#admin-users').textContent = String(overview.activeUsers || 0);
-  $('#admin-generations').textContent = String(overview.totalGenerations || 0);
-  $('#admin-revenue').textContent = `$${Number(overview.revenue || 0).toFixed(2)}`;
-  const logsCount = Array.isArray(overview.logs) ? overview.logs.length : Number(overview.logs || 0);
-  $('#admin-logs-count').textContent = String(logsCount);
-  await loadAdminUsers();
-};
-
-const loadAdminUsers = async () => {
-  if (state.user?.role !== 'admin') return;
-  const search = $('#admin-user-search').value.trim();
-  const query = search ? `?search=${encodeURIComponent(search)}` : '';
-  state.adminUsers = await api(`/api/admin/users${query}`);
-  renderAdminUsers();
-};
-
-const hydrateAuthenticatedState = async () => {
-  await loadProfile();
-  await Promise.allSettled([loadPrompts(), loadGenerations()]);
-  showAppShell();
-};
-
-const loadInitialCollections = async () => {
-  await Promise.allSettled([loadPrompts(), loadGenerations()]);
+const loadTransactions = async () => {
+  state.transactions = await api('/api/transactions');
+  renderTransactions();
 };
 
 const restoreSession = async () => {
-  const persistedToken = localStorage.getItem(STORAGE_KEYS.token);
-  if (!persistedToken) {
-    clearSession();
-    return;
-  }
-  state.token = persistedToken;
   try {
-    await hydrateAuthenticatedState();
+    await loadProfile();
+    await Promise.allSettled([loadDashboard(), loadPrompts(), loadGenerations(), loadTransactions()]);
+    showAppShell();
     connectSocket();
   } catch (_error) {
-    clearSession();
+    await clearSession();
   }
 };
 
-const redirectToPricingForCredits = (message) => {
-  updateCreditWarning(message);
-  setTopAction('pricing');
-  alert(message);
-};
+$$('[data-auth-tab]').forEach((button) => {
+  button.addEventListener('click', () => {
+    const target = button.dataset.authTab;
+    $('#signin-form').classList.toggle('hidden', target !== 'signin');
+    $('#signup-form').classList.toggle('hidden', target !== 'signup');
+    $$('[data-auth-tab]').forEach((tab) => {
+      const active = tab.dataset.authTab === target;
+      tab.classList.toggle('active', active);
+      tab.setAttribute('aria-pressed', String(active));
+    });
+    showAuthFeedback('');
+  });
+});
 
 $('#signin-form').addEventListener('submit', async (event) => {
   event.preventDefault();
   showAuthFeedback('');
   try {
-    const payload = await api('/api/auth/login', {
+    const location = await getClientLocation();
+    await api('/api/auth/login', {
       method: 'POST',
-      body: JSON.stringify({
-        email: $('#signin-email').value.trim(),
-        password: $('#signin-password').value,
-      }),
+      body: JSON.stringify({ email: $('#signin-email').value.trim(), password: $('#signin-password').value, location }),
     });
-    applyAuthPayload(payload);
-    await Promise.allSettled([loadProfile(), loadInitialCollections()]);
-    setTopAction('image');
     $('#signin-form').reset();
+    await restoreSession();
   } catch (error) {
     showAuthFeedback(error.message);
   }
@@ -659,65 +532,42 @@ $('#signup-form').addEventListener('submit', async (event) => {
     return;
   }
   try {
-    const payload = await api('/api/auth/register', {
+    const location = await getClientLocation();
+    await api('/api/auth/register', {
       method: 'POST',
-      body: JSON.stringify({
-        email: $('#signup-email').value.trim(),
-        password: $('#signup-password').value,
-      }),
+      body: JSON.stringify({ email: $('#signup-email').value.trim(), password: $('#signup-password').value, location }),
     });
-    applyAuthPayload(payload);
-    await Promise.allSettled([loadProfile(), loadInitialCollections()]);
-    setTopAction('image');
     $('#signup-form').reset();
+    await restoreSession();
   } catch (error) {
     showAuthFeedback(error.message);
   }
 });
 
-$$('[data-auth-tab]').forEach((button) => {
-  button.addEventListener('click', () => {
-    const target = button.dataset.authTab;
-    $$('#signin-form, #signup-form').forEach((form) => form.classList.add('hidden'));
-    $(`#${target}-form`).classList.remove('hidden');
-    $$('[data-auth-tab]').forEach((tab) => {
-      const active = tab.dataset.authTab === target;
-      tab.classList.toggle('active', active);
-      tab.setAttribute('aria-pressed', String(active));
-    });
-    showAuthFeedback('');
-  });
+$('#logout-btn').addEventListener('click', async () => {
+  try {
+    await api('/api/auth/logout', { method: 'POST' });
+  } catch (_error) {
+    // ignore logout failures and clear UI anyway
+  }
+  await clearSession();
 });
 
-$('#logout-btn').addEventListener('click', () => {
-  clearSession();
-  state.selectedModel = null;
-  $('#creator-view').classList.add('hidden');
-  $('#catalog-view').classList.remove('hidden');
-  state.workspaceAction = 'image';
-  state.activeAction = 'image';
-  state.activeDrawer = 'workspace';
-  updateActionHeader();
-  renderModelCards();
-  showSection('workspace');
-});
+$('#drawer-open').addEventListener('click', () => setDrawerOpen(true));
+$('#drawer-close').addEventListener('click', () => setDrawerOpen(false));
+$('#drawer-overlay').addEventListener('click', () => setDrawerOpen(false));
+window.addEventListener('resize', () => setDrawerOpen(state.drawerOpen));
 
 $('#generation-form').addEventListener('submit', async (event) => {
   event.preventDefault();
-  if (!state.token) {
-    clearSession();
-    showAuthFeedback('Please sign in to generate content.');
-    return;
-  }
   const requiredCredits = state.creditCosts[$('#generation-type').value] || 0;
   if (state.creditsBalance < requiredCredits) {
-    redirectToPricingForCredits(`You need ${requiredCredits} credits for this generation. Please add credits before generating.`);
+    updateCreditWarning(`You need ${requiredCredits} credits for this generation.`);
+    setActiveDrawer('payments');
     return;
   }
-
   resetPreview();
   updatePreview({ status: 'queued', progress: 12 });
-
   try {
     await api('/api/generate', {
       method: 'POST',
@@ -728,11 +578,12 @@ $('#generation-form').addEventListener('submit', async (event) => {
         aspectRatio: $('#aspect-ratio').value,
       }),
     });
-    await loadProfile();
+    await Promise.allSettled([loadProfile(), loadDashboard(), loadGenerations()]);
     updateCreditWarning('');
   } catch (error) {
-    if (error.status === 402 || /insufficient credits/i.test(error.message)) {
-      redirectToPricingForCredits(`You need ${requiredCredits} credits for this generation. Please add credits before generating.`);
+    if (error.status === 402 || /insufficient/i.test(error.message)) {
+      updateCreditWarning(`You need ${requiredCredits} credits for this generation.`);
+      setActiveDrawer('payments');
       updatePreview({ status: 'insufficient credits', progress: 0 });
       return;
     }
@@ -741,11 +592,6 @@ $('#generation-form').addEventListener('submit', async (event) => {
 });
 
 $('#save-prompt-btn').addEventListener('click', async () => {
-  if (!state.token) {
-    clearSession();
-    showAuthFeedback('Please sign in to save prompts.');
-    return;
-  }
   try {
     const prompt = await api('/api/prompts', {
       method: 'POST',
@@ -759,7 +605,7 @@ $('#save-prompt-btn').addEventListener('click', async () => {
     state.savedPrompts.unshift(prompt);
     renderPrompts();
   } catch (error) {
-    alert(error.message);
+    updatePreview({ status: error.message, progress: 0 });
   }
 });
 
@@ -768,75 +614,20 @@ $('#prompt-search').addEventListener('input', (event) => {
   renderPrompts(state.savedPrompts.filter((item) => `${item.title} ${item.promptText}`.toLowerCase().includes(search)));
 });
 
-$('#admin-refresh-btn').addEventListener('click', async () => {
-  try {
-    showAdminFeedback('');
-    await loadAdminView();
-  } catch (error) {
-    showAdminFeedback(error.message, 'error');
-  }
-});
-
-$('#admin-user-search').addEventListener('input', async () => {
-  if (state.user?.role !== 'admin') return;
-  clearTimeout(adminSearchDebounce);
-  adminSearchDebounce = setTimeout(async () => {
-    try {
-      await loadAdminUsers();
-    } catch (error) {
-      showAdminFeedback(error.message, 'error');
-    }
-  }, 250);
-});
-
-$('#admin-user-list').addEventListener('submit', async (event) => {
-  const form = event.target.closest('[data-user-form]');
-  if (!form) return;
-  event.preventDefault();
-
-  const userId = form.dataset.userForm;
-  const formData = new FormData(form);
-  const creditsBalanceRaw = String(formData.get('creditsBalance') || '').trim();
-  const creditsBalance = Number(creditsBalanceRaw);
-
-  if (!creditsBalanceRaw || !Number.isInteger(creditsBalance) || creditsBalance < 0) {
-    showAdminFeedback('Credits must be a whole number greater than or equal to 0.', 'error');
-    return;
-  }
-
-  try {
-    showAdminFeedback('');
-    const updated = await api(`/api/admin/users/${userId}`, {
-      method: 'PATCH',
-      body: JSON.stringify({
-        creditsBalance,
-        role: formData.get('role'),
-        isSuspended: formData.get('isSuspended') === 'true',
-      }),
-    });
-
-    state.adminUsers = state.adminUsers.map((user) => (user.id === updated.id ? updated : user));
-    renderAdminUsers();
-    showAdminFeedback(`Updated ${updated.email}.`);
-
-    const updatedCurrentUser = state.user?.id === updated.id;
-    if (updatedCurrentUser && updated.role !== 'admin') {
-      syncProfile(updated);
-      await setActiveDrawer('workspace');
-      showAdminFeedback(`Updated ${updated.email}. Admin access removed for this account.`);
-      return;
-    }
-
-    if (updatedCurrentUser) {
-      syncProfile(updated);
-      await loadAdminView();
-    }
-  } catch (error) {
-    showAdminFeedback(error.message, 'error');
-  }
-});
-
+$('#history-refresh').addEventListener('click', loadGenerations);
 $('#back-to-models').addEventListener('click', returnToCatalog);
+
+$('#settings-form').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  showSettingsFeedback('');
+  try {
+    await api('/api/profile', { method: 'PUT', body: JSON.stringify({ avatarUrl: $('#settings-avatar').value || undefined }) });
+    await Promise.allSettled([loadProfile(), loadDashboard()]);
+    showSettingsFeedback('Settings saved.');
+  } catch (error) {
+    showSettingsFeedback(error.message, 'error');
+  }
+});
 
 $('#share-btn').addEventListener('click', async () => {
   const url = $('#download-link').getAttribute('href');
@@ -845,7 +636,7 @@ $('#share-btn').addEventListener('click', async () => {
     await navigator.clipboard.writeText(url);
     updatePreview({ status: 'link copied', progress: 100, outputUrl: url });
   } catch (_error) {
-    alert('Unable to copy the share link.');
+    updatePreview({ status: 'unable to copy link', progress: 0, outputUrl: url });
   }
 });
 
@@ -864,31 +655,35 @@ document.addEventListener('click', async (event) => {
 
   const modelButton = event.target.closest('[data-select-model]');
   if (modelButton) {
-    if (!state.token) {
-      clearSession();
-      showAuthFeedback('Please sign in to use a model.');
-      return;
-    }
-    const catalog = MODEL_CATALOG[state.activeAction];
+    const catalog = MODEL_CATALOG[state.activeAction] || MODEL_CATALOG.image;
     const selected = catalog.models.find((model) => model.id === modelButton.dataset.selectModel);
-    if (selected?.available) populateCreator(selected);
+    if (selected?.available && IMPLEMENTED_CREATOR_TYPES.has(selected.type)) populateCreator(selected);
     return;
   }
 
   const usePromptButton = event.target.closest('[data-use-prompt]');
   if (usePromptButton) {
     const selected = state.savedPrompts.find((item) => item.id === usePromptButton.dataset.usePrompt);
-    if (selected) openCreatorForCategory(selected.category, selected.promptText);
+    if (selected) {
+      setTopAction(selected.category);
+      const model = MODEL_CATALOG[selected.category]?.models.find((entry) => entry.available);
+      if (model) {
+        populateCreator(model);
+        $('#prompt').value = selected.promptText;
+      }
+    }
   }
 });
 
 (async () => {
   updateActionHeader();
   renderModelCards();
+  renderDashboard();
   renderAssets();
   renderPrompts();
-  renderAdminUsers([]);
-  showSection('workspace');
+  renderTransactions();
+  renderSettings();
+  showSection('dashboard');
   showAuthScreen();
   await restoreSession();
 })();

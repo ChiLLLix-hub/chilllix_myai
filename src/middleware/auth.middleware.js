@@ -1,9 +1,9 @@
 const { verifyAccessToken } = require('../utils/jwt');
 const { HttpError } = require('../utils/http-error');
+const { getAuthTokenFromRequest } = require('../utils/auth-cookie');
 
 const requireAuth = (req, _res, next) => {
-  const header = req.headers.authorization || '';
-  const token = header.startsWith('Bearer ') ? header.slice(7) : null;
+  const token = getAuthTokenFromRequest(req);
   if (!token) return next(new HttpError(401, 'Authentication required'));
 
   try {

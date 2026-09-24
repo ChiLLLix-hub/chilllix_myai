@@ -2,7 +2,7 @@ const fs = require('fs/promises');
 const path = require('path');
 const { Client } = require('pg');
 
-const migrationPath = path.resolve(__dirname, '../../database/migrations/001_init.sql');
+const migrationsDirectory = path.resolve(__dirname, '../../database/migrations');
 
 const buildSslConfig = (connectionString, nodeEnv = process.env.NODE_ENV || 'development') => {
   try {
@@ -35,6 +35,7 @@ const runMigration = async ({
   nodeEnv = process.env.NODE_ENV || 'development',
   clientFactory = (config) => new Client(config),
   readFile = fs.readFile,
+  readdir = fs.readdir,
   log = console.log,
   errorLog = console.error,
 } = {}) => {
@@ -42,7 +43,9 @@ const runMigration = async ({
     throw new Error('DATABASE_URL must be set before running the migration');
   }
 
-  const sql = await readFile(migrationPath, 'utf8');
+  const migrationFiles = (await readdir(migrationsDirectory))
+    .filter((fileName) => fileName.endsWith('.sql'))
+    .sort((left, right) => left.localeCompare(right));
   let client = null;
   let connected = false;
   let migrationError = null;
@@ -55,7 +58,10 @@ const runMigration = async ({
     await client.connect();
     connected = true;
     log('Connected to PostgreSQL');
-    await client.query(sql);
+    for (const fileName of migrationFiles) {
+      const sql = await readFile(path.join(migrationsDirectory, fileName), 'utf8');
+      await client.query(sql);
+    }
     log('Migration applied successfully');
   } catch (error) {
     migrationError = error;

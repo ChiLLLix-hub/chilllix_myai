@@ -67,6 +67,7 @@ const queueGenerationRequest = async ({ userId, prompt, type, model, aspectRatio
       userId,
       type,
       prompt,
+      modelUsed: selectedModel || null,
       status: 'queued',
       costCredits,
       expiresAt: calculateExpiryDate(settings.asset_retention_days),

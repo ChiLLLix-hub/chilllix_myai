@@ -16,7 +16,7 @@ const { errorHandler, notFoundHandler } = require('./middleware/error.middleware
 const app = express();
 app.set('trust proxy', 1);
 app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
-app.use(cors({ origin: env.frontendOrigin, credentials: false, methods: ['GET', 'POST', 'PUT', 'PATCH'], allowedHeaders: ['Content-Type', 'Authorization'] }));
+app.use(cors({ origin: env.frontendOrigin, credentials: true, methods: ['GET', 'POST', 'PUT', 'PATCH'], allowedHeaders: ['Content-Type', 'Authorization'] }));
 app.use(express.json({ limit: '1mb' }));
 app.use(auditLogger);
 
@@ -34,6 +34,10 @@ app.use('/api/transactions', transactionRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api', notFoundHandler);
 app.use(pageRateLimiter);
+app.use('/admin', express.static(path.join(__dirname, '..', 'admin')));
+app.get(/^\/admin(?:\/.*)?$/, (_req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'admin', 'index.html'));
+});
 app.use(express.static(path.join(__dirname, '..', 'public')));
 app.get(/^\/(?!api(?:\/|$)).*/, (_req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
