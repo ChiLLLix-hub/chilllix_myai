@@ -5,4 +5,6 @@ SSLProxyEngine On
 ProxyPass /api/ https://YOUR_RAILWAY_APP.up.railway.app/api/
 ProxyPassReverse /api/ https://YOUR_RAILWAY_APP.up.railway.app/api/
 
-ProxyPass /socket.io/ wss://YOUR_RAILWAY_APP.up.railway.app/socket.io/
+ProxyPassMatch ^/socket\.io/(.*)$ wss://YOUR_RAILWAY_APP.up.railway.app/socket.io/$1
+ProxyPass /socket.io/ https://YOUR_RAILWAY_APP.up.railway.app/socket.io/
+ProxyPassReverse /socket.io/ https://YOUR_RAILWAY_APP.up.railway.app/socket.io/

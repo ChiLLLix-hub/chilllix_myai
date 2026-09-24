@@ -142,6 +142,7 @@ You can also set `window.CHILLLIX_API_BASE_URL` before loading `/public/app.js`;
 ## End-to-End Verification Checklist
 
 1. Open browser DevTools -> Network.
-2. Confirm `/api/auth/register` and `/api/profile` return backend responses (not cPanel 404).
-3. Confirm signup and login both succeed.
-4. Confirm Socket.IO connects (no repeated websocket/transport errors).
+2. Reverse-proxy mode: confirm `/api/auth/register` and `/api/profile` return backend responses (not cPanel 404).
+3. Direct-subdomain mode: confirm requests go to your configured API base (for example `https://api.agromar.com.my/api/auth/register`) and return backend responses.
+4. Confirm signup and login both succeed.
+5. Confirm Socket.IO connects (no repeated websocket/transport errors).
