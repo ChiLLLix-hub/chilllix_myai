@@ -27,7 +27,8 @@ const setAuthCookie = (res, token) => {
 };
 
 const clearAuthCookie = (res) => {
-  res.clearCookie(AUTH_COOKIE_NAME, { ...getAuthCookieOptions(), maxAge: undefined });
+  const { path, sameSite, secure } = getAuthCookieOptions();
+  res.clearCookie(AUTH_COOKIE_NAME, { path, sameSite, secure });
 };
 
 const getAuthTokenFromRequest = (req) => {

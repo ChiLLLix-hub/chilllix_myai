@@ -33,7 +33,7 @@ const getDashboard = async (req, res) => {
     throw new HttpError(503, 'Database is not configured');
   }
 
-  const [user, settings, recentGenerations, recentPrompts, recentTransactions, recentLogins, totalGenerations, successfulGenerations] = await Promise.all([
+  const [user, settings, recentGenerations, recentPrompts, recentTransactions, recentLogins, totalGenerations, successfulGenerations, totalSavedPrompts] = await Promise.all([
     User.findByPk(req.user.sub),
     getSettingsMap(),
     Generation.findAll({ where: { userId: req.user.sub, isDeleted: false }, order: [['createdAt', 'DESC']], limit: 10 }),
@@ -42,13 +42,14 @@ const getDashboard = async (req, res) => {
     UserLog.findAll({
       where: {
         userId: req.user.sub,
-        action: { [Op.in]: ['auth.login.success', 'auth.register.success', 'auth.login.failed', 'auth.login.locked'] },
+        action: { [Op.in]: ['auth.login.success', 'auth.register.success', 'auth.login.failed', 'auth.login.locked', 'auth.login.denied'] },
       },
       order: [['createdAt', 'DESC']],
       limit: 10,
     }),
     Generation.count({ where: { userId: req.user.sub, isDeleted: false } }),
     Generation.count({ where: { userId: req.user.sub, isDeleted: false, status: 'completed' } }),
+    SavedPrompt.count({ where: { userId: req.user.sub } }),
   ]);
 
   if (!user) throw new HttpError(404, 'User not found');
@@ -66,7 +67,7 @@ const getDashboard = async (req, res) => {
     stats: {
       totalGenerations,
       successfulGenerations,
-      savedPrompts: recentPrompts.length,
+      savedPrompts: totalSavedPrompts,
       availableCredits: user.creditsBalance,
     },
     recentGenerations,

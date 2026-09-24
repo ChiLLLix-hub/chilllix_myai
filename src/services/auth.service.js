@@ -21,16 +21,11 @@ const registerUser = async ({ email, password, context }) => {
   const existing = await User.findOne({ where: { email } });
   if (existing) throw new HttpError(409, 'Email already registered');
   const passwordHash = await bcrypt.hash(password, 12);
-  const now = new Date();
   const user = await User.create({
     email,
     passwordHash,
     creditsBalance: env.starterCredits,
     role: 'user',
-    lastLoginAt: now,
-    lastLoginIp: context.ipAddress,
-    lastLoginLatitude: context.location.latitude,
-    lastLoginLongitude: context.location.longitude,
   });
   await writeAuditLog({
     userId: user.id,
