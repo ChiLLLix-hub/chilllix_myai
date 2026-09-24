@@ -105,6 +105,11 @@ const state = {
 };
 
 const IMPLEMENTED_CREATOR_TYPES = new Set(['image']);
+const STORAGE_KEYS = Object.freeze({
+  token: 'chilllix.token',
+  guestEmail: 'chilllix.guest.email',
+  guestPassword: 'chilllix.guest.password',
+});
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => Array.from(document.querySelectorAll(selector));
@@ -118,6 +123,62 @@ const createElement = (tag, className, text) => {
 const focusFirstCatalogAction = () => {
   const firstAction = document.querySelector('[data-select-model]:not([disabled])');
   firstAction?.focus();
+};
+
+const syncCreditsBalance = () => {
+  $('#credits-balance').textContent = String(state.creditsBalance || 0);
+};
+
+const createGuestCredentials = () => {
+  const random = (globalThis.crypto?.randomUUID?.() || `guest-${Date.now()}`).replace(/[^a-zA-Z0-9-]/g, '').toLowerCase();
+  const email = `guest-${random}@demo.chilllix.local`;
+  const password = `${random}-Chilllix!2026`;
+  localStorage.setItem(STORAGE_KEYS.guestEmail, email);
+  localStorage.setItem(STORAGE_KEYS.guestPassword, password);
+  return { email, password };
+};
+
+const getGuestCredentials = () => {
+  const email = localStorage.getItem(STORAGE_KEYS.guestEmail);
+  const password = localStorage.getItem(STORAGE_KEYS.guestPassword);
+  if (email && password) return { email, password };
+  return createGuestCredentials();
+};
+
+const applySession = (payload) => {
+  state.token = payload.token;
+  state.creditsBalance = payload.user?.creditsBalance || 0;
+  localStorage.setItem(STORAGE_KEYS.token, payload.token);
+  syncCreditsBalance();
+};
+
+const bootstrapSession = async () => {
+  const persistedToken = localStorage.getItem(STORAGE_KEYS.token);
+  if (persistedToken) {
+    state.token = persistedToken;
+    syncCreditsBalance();
+    return;
+  }
+
+  const credentials = getGuestCredentials();
+  try {
+    const loginPayload = await api('/api/auth/login', {
+      method: 'POST',
+      body: JSON.stringify(credentials),
+    });
+    applySession(loginPayload);
+    return;
+  } catch (error) {
+    if (!/Invalid credentials/i.test(error.message)) {
+      throw error;
+    }
+  }
+
+  const registerPayload = await api('/api/auth/register', {
+    method: 'POST',
+    body: JSON.stringify(credentials),
+  });
+  applySession(registerPayload);
 };
 
 const showSection = (sectionId) => {
@@ -418,11 +479,17 @@ document.addEventListener('click', (event) => {
   }
 });
 
-(() => {
+(async () => {
   updateActionHeader();
   renderModelCards();
   renderAssets();
   renderPrompts();
-  connectSocket();
   showSection('workspace');
+  syncCreditsBalance();
+  try {
+    await bootstrapSession();
+  } catch (error) {
+    updatePreview({ status: error.message, progress: 0 });
+  }
+  connectSocket();
 })();

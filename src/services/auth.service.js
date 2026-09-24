@@ -1,5 +1,6 @@
 const bcrypt = require('bcryptjs');
 const { User } = require('../models');
+const env = require('../config/env');
 const { signAccessToken } = require('../utils/jwt');
 const { HttpError } = require('../utils/http-error');
 
@@ -11,7 +12,7 @@ const registerUser = async ({ email, password }) => {
   const existing = await User.findOne({ where: { email } });
   if (existing) throw new HttpError(409, 'Email already registered');
   const passwordHash = await bcrypt.hash(password, 12);
-  const user = await User.create({ email, passwordHash, creditsBalance: 0, role: 'user' });
+  const user = await User.create({ email, passwordHash, creditsBalance: env.starterCredits, role: 'user' });
   return { user, token: signAccessToken(user) };
 };
 
