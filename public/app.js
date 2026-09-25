@@ -11,7 +11,10 @@ const MODEL_CATALOG = {
         blurb: 'Fast premium image generation for polished marketing, concept, and product visuals.',
         badge: 'Text to Image',
         meta: 'Async Wiro Run + Task Detail',
-        sizeOptions: ['auto', '1:1', '3:2', '2:3'],
+        ratioOptions: ['1:1', '3:2', '2:3'],
+        defaultRatio: '1:1',
+        qualityOptions: ['low', 'medium', 'high'],
+        defaultQuality: 'medium',
         cta: 'Open Creator',
         available: true,
         hero: 'linear-gradient(135deg, rgba(6, 182, 212, 0.35), rgba(37, 99, 235, 0.18) 45%, rgba(15, 23, 42, 0.92))',
@@ -24,7 +27,20 @@ const MODEL_CATALOG = {
         blurb: 'Balanced OpenAI image model for dependable generation and editing tasks.',
         badge: 'Text to Image',
         meta: 'Async Wiro Run + Task Detail',
-        sizeOptions: ['auto', '1:1', '3:2', '2:3'],
+        resolutionOptions: ['1k', '2k', '4k'],
+        defaultResolution: '1k',
+        ratioOptions: [
+          { value: '1:1', label: '1:1 (square) — 1024×1024 (1k) / 2048×2048 (2k) / 2880×2880 (4k)' },
+          { value: '3:2', label: '3:2 (landscape) — 1536×1024 (1k) / 2400×1600 (2k) / 3456×2304 (4k)' },
+          { value: '2:3', label: '2:3 (portrait) — 1024×1536 (1k) / 1600×2400 (2k) / 2304×3456 (4k)' },
+          { value: '4:3', label: '4:3 (landscape) — 1280×960 (1k) / 2048×1536 (2k) / 3200×2400 (4k)' },
+          { value: '3:4', label: '3:4 (portrait) — 960×1280 (1k) / 1536×2048 (2k) / 2400×3200 (4k)' },
+          { value: '16:9', label: '16:9 (landscape) — 1280×720 (1k) / 2048×1152 (2k) / 3840×2160 (4k)' },
+          { value: '9:16', label: '9:16 (portrait) — 720×1280 (1k) / 1152×2048 (2k) / 2160×3840 (4k)' },
+        ],
+        defaultRatio: '1:1',
+        qualityOptions: ['low', 'medium', 'high'],
+        defaultQuality: 'low',
         cta: 'Open Creator',
         available: true,
         hero: 'linear-gradient(135deg, rgba(168, 85, 247, 0.38), rgba(244, 63, 94, 0.18) 45%, rgba(15, 23, 42, 0.92))',
@@ -99,6 +115,24 @@ const createElement = (tag, className, text) => {
   if (className) element.className = className;
   if (text !== undefined) element.textContent = text;
   return element;
+};
+
+const populateSelect = (selectElement, options = [], defaultValue) => {
+  selectElement.innerHTML = '';
+  options.forEach((entry) => {
+    const option = createElement('option');
+    if (typeof entry === 'string') {
+      option.value = entry;
+      option.textContent = entry;
+    } else {
+      option.value = entry.value;
+      option.textContent = entry.label || entry.value;
+    }
+    selectElement.appendChild(option);
+  });
+  if (defaultValue) {
+    selectElement.value = defaultValue;
+  }
 };
 
 const formatDate = (value) => value ? new Date(value).toLocaleString() : '—';
@@ -447,13 +481,17 @@ const populateCreator = (model) => {
   $('#creator-model-meta').textContent = model.meta;
   $('#selected-model-chip').textContent = model.badge;
   $('#generate-submit').textContent = `Generate with ${model.name}`;
-  const sizeSelect = $('#aspect-ratio');
-  sizeSelect.innerHTML = '';
-  (model.sizeOptions || ['auto']).forEach((size) => {
-    const option = createElement('option', '', size);
-    option.value = size;
-    sizeSelect.appendChild(option);
-  });
+  const resolutionSelect = $('#resolution');
+  const ratioSelect = $('#ratio');
+  const qualitySelect = $('#quality');
+  const resolutionOptions = model.resolutionOptions || [];
+  const ratioOptions = model.ratioOptions || ['1:1'];
+  const qualityOptions = model.qualityOptions || ['medium'];
+  populateSelect(resolutionSelect, resolutionOptions.length ? resolutionOptions : ['']);
+  populateSelect(ratioSelect, ratioOptions, model.defaultRatio || (typeof ratioOptions[0] === 'string' ? ratioOptions[0] : ratioOptions[0]?.value));
+  populateSelect(qualitySelect, qualityOptions, model.defaultQuality || qualityOptions[0]);
+  resolutionSelect.disabled = !resolutionOptions.length;
+  if (!resolutionOptions.length) resolutionSelect.value = '';
   const requiredCredits = state.creditCosts[model.type] || 0;
   updateCreditWarning(state.creditsBalance < requiredCredits ? `This ${model.type} generation needs ${requiredCredits} credits.` : '');
   $('#catalog-view').classList.add('hidden');
@@ -620,7 +658,10 @@ $('#generation-form').addEventListener('submit', async (event) => {
         prompt: $('#prompt').value,
         type: $('#generation-type').value,
         model: $('#generation-model').value,
-        aspectRatio: $('#aspect-ratio').value,
+        ratio: $('#ratio').value,
+        aspectRatio: $('#ratio').value,
+        resolution: $('#resolution').value || undefined,
+        quality: $('#quality').value,
       }),
     });
     await Promise.allSettled([loadProfile(), loadDashboard(), loadGenerations()]);

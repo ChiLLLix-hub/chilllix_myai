@@ -30,7 +30,7 @@ const resolveRequestedModel = ({ type, model }) => {
   return config.id;
 };
 
-const queueGenerationRequest = async ({ userId, prompt, type, model, aspectRatio }) => {
+const queueGenerationRequest = async ({ userId, prompt, type, model, aspectRatio, ratio, resolution, quality }) => {
   const settings = await getSettingsMap();
   const costs = resolveGenerationCosts(settings);
   const costCredits = costs[type];
@@ -75,7 +75,18 @@ const queueGenerationRequest = async ({ userId, prompt, type, model, aspectRatio
     await transaction.commit();
     committed = true;
     try {
-      await enqueueGeneration({ generationId: generation.id, userId, prompt, type, model: selectedModel, aspectRatio, costCredits });
+      await enqueueGeneration({
+        generationId: generation.id,
+        userId,
+        prompt,
+        type,
+        model: selectedModel,
+        aspectRatio,
+        ratio,
+        resolution,
+        quality,
+        costCredits,
+      });
     } catch (error) {
       await failGenerationAndRefund({ generationId: generation.id, userId, reason: 'Queue submission failed' });
       throw error;

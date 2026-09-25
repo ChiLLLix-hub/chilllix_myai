@@ -7,7 +7,11 @@ const IMAGE_MODEL_CONFIGS = Object.freeze({
     supportsSync: true,
     supportsStreaming: true,
     fields: Object.freeze({
-      sizeOptions: Object.freeze(['auto', '1:1', '3:2', '2:3']),
+      ratioOptions: Object.freeze(['1:1', '3:2', '2:3']),
+      defaultRatio: '1:1',
+      qualityOptions: Object.freeze(['low', 'medium', 'high']),
+      defaultQuality: 'medium',
+      fieldMode: 'ratio-quality',
     }),
   }),
   'openai/gpt-image-2': Object.freeze({
@@ -18,7 +22,13 @@ const IMAGE_MODEL_CONFIGS = Object.freeze({
     supportsSync: true,
     supportsStreaming: true,
     fields: Object.freeze({
-      sizeOptions: Object.freeze(['auto', '1:1', '3:2', '2:3']),
+      resolutionOptions: Object.freeze(['1k', '2k', '4k']),
+      defaultResolution: '1k',
+      ratioOptions: Object.freeze(['1:1', '3:2', '2:3', '4:3', '3:4', '16:9', '9:16']),
+      defaultRatio: '1:1',
+      qualityOptions: Object.freeze(['low', 'medium', 'high']),
+      defaultQuality: 'low',
+      fieldMode: 'resolution-ratio-quality',
     }),
   }),
 });

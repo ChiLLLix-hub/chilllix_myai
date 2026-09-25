@@ -6,7 +6,7 @@ const { execFileSync } = require('node:child_process');
 const path = require('node:path');
 const { cleanString, cleanStringArray, cleanJson } = require('../src/utils/sanitize');
 const { resolveGenerationCosts, calculateExpiryDate, resolveRequestedModel, persistCompletedGeneration, refundFailedGeneration } = require('../src/services/generation.service');
-const { buildImageFields, ensureSupportedSize, extractOutputUrl, pollTaskDetail, submitAsyncRun, submitImageGeneration } = require('../src/services/wiro.service');
+const { buildImageFields, ensureSupportedImageOptions, extractOutputUrl, pollTaskDetail, submitAsyncRun, submitImageGeneration } = require('../src/services/wiro.service');
 const { shouldCleanupGeneration } = require('../src/jobs/cleanup.job');
 const { buildSslConfig, runMigration } = require('../src/scripts/run-migration');
 const { parseCookies, getAuthTokenFromRequest } = require('../src/utils/auth-cookie');
@@ -76,20 +76,53 @@ test('sequelize models map userId attributes onto user_id columns', () => {
   });
 });
 
-test('buildImageFields maps prompt and requested size', () => {
-  assert.deepEqual(buildImageFields({ prompt: 'sunset skyline', aspectRatio: '3:2' }), {
+test('buildImageFields maps prompt and ratio to size for ratio-quality models', () => {
+  assert.deepEqual(buildImageFields({
+    modelConfig: { fields: { fieldMode: 'ratio-quality' } },
+    prompt: 'sunset skyline',
+    ratio: '3:2',
+    quality: 'medium',
+  }), {
     prompt: 'sunset skyline',
     size: '3:2',
+    quality: 'medium',
   });
 });
 
-test('ensureSupportedSize rejects undeclared image sizes', () => {
+test('buildImageFields maps GPT Image 2 resolution-ratio-quality fields', () => {
+  assert.deepEqual(buildImageFields({
+    modelConfig: { fields: { fieldMode: 'resolution-ratio-quality' } },
+    prompt: 'sunset skyline',
+    resolution: '2k',
+    ratio: '16:9',
+    quality: 'low',
+  }), {
+    prompt: 'sunset skyline',
+    resolution: '2k',
+    ratio: '16:9',
+    quality: 'low',
+  });
+});
+
+test('ensureSupportedImageOptions rejects undeclared image options', () => {
   const modelConfig = {
     id: 'openai/gpt-image-2',
-    fields: { sizeOptions: ['auto', '1:1', '3:2', '2:3'] },
+    fields: {
+      ratioOptions: ['1:1', '3:2', '2:3'],
+      qualityOptions: ['low', 'medium', 'high'],
+      resolutionOptions: ['1k', '2k', '4k'],
+      defaultRatio: '1:1',
+      defaultQuality: 'low',
+      defaultResolution: '1k',
+    },
   };
-  assert.equal(ensureSupportedSize(modelConfig, '1:1'), '1:1');
-  assert.throws(() => ensureSupportedSize(modelConfig, '16:9'), /Unsupported image size/);
+  assert.deepEqual(
+    ensureSupportedImageOptions(modelConfig, { ratio: '1:1', resolution: '2k', quality: 'high' }),
+    { ratio: '1:1', resolution: '2k', quality: 'high' },
+  );
+  assert.throws(() => ensureSupportedImageOptions(modelConfig, { ratio: '16:9' }), /Unsupported image ratio/);
+  assert.throws(() => ensureSupportedImageOptions(modelConfig, { ratio: '1:1', resolution: '8k' }), /Unsupported image resolution/);
+  assert.throws(() => ensureSupportedImageOptions(modelConfig, { ratio: '1:1', quality: 'ultra' }), /Unsupported image quality/);
 });
 
 test('extractOutputUrl returns the first output url', () => {
@@ -172,7 +205,9 @@ test('submitImageGeneration resolves a configured image model end to end', async
   const result = await submitImageGeneration({
     model: 'openai/gpt-image-2',
     prompt: 'cat portrait',
-    aspectRatio: '1:1',
+    ratio: '1:1',
+    resolution: '1k',
+    quality: 'low',
   }, {
     fetchImpl,
     pollIntervalMs: 0,
@@ -182,6 +217,9 @@ test('submitImageGeneration resolves a configured image model end to end', async
   assert.equal(result.outputUrl, 'https://cdn.example.com/image.png');
   assert.equal(result.taskId, 'task-42');
   assert.equal(calls[0].url.endsWith('/Run/openai/gpt-image-2'), true);
+  assert.equal(calls[0].options.body.get('resolution'), '1k');
+  assert.equal(calls[0].options.body.get('ratio'), '1:1');
+  assert.equal(calls[0].options.body.get('quality'), 'low');
   assert.equal(calls[1].url.endsWith('/Task/Detail'), true);
 });
 
@@ -204,7 +242,7 @@ test('submitImageGeneration falls back to the default image model when omitted',
 
   const result = await submitImageGeneration({
     prompt: 'default model portrait',
-    aspectRatio: '1:1',
+    ratio: '1:1',
   }, {
     fetchImpl,
     pollIntervalMs: 0,

@@ -56,18 +56,49 @@ const parseJsonResponse = async (response, label) => {
   }
 };
 
-const buildImageFields = ({ prompt, aspectRatio }) => ({
-  prompt,
-  size: aspectRatio || 'auto',
-});
-
-const ensureSupportedSize = (modelConfig, aspectRatio) => {
-  const requestedSize = aspectRatio || 'auto';
-  const sizeOptions = modelConfig.fields?.sizeOptions || ['auto'];
-  if (!sizeOptions.includes(requestedSize)) {
-    throw new Error(`Unsupported image size ${requestedSize} for ${modelConfig.id}`);
+const buildImageFields = ({ modelConfig, prompt, ratio, resolution, quality }) => {
+  const fieldMode = modelConfig.fields?.fieldMode || 'ratio-quality';
+  if (fieldMode === 'resolution-ratio-quality') {
+    return {
+      prompt,
+      resolution,
+      ratio,
+      quality,
+    };
   }
-  return requestedSize;
+  return {
+    prompt,
+    size: ratio,
+    quality,
+  };
+};
+
+const ensureSupportedImageOptions = (modelConfig, { aspectRatio, ratio, resolution, quality }) => {
+  const ratioOptions = modelConfig.fields?.ratioOptions || ['1:1'];
+  const qualityOptions = modelConfig.fields?.qualityOptions || ['medium'];
+  const resolutionOptions = modelConfig.fields?.resolutionOptions || [];
+  const selectedRatioRaw = ratio || aspectRatio || modelConfig.fields?.defaultRatio || ratioOptions[0];
+  const selectedRatio = selectedRatioRaw === 'auto'
+    ? (modelConfig.fields?.defaultRatio || ratioOptions[0])
+    : selectedRatioRaw;
+  const selectedQuality = quality || modelConfig.fields?.defaultQuality || qualityOptions[0];
+  const selectedResolution = resolution || modelConfig.fields?.defaultResolution || resolutionOptions[0];
+
+  if (selectedRatio && !ratioOptions.includes(selectedRatio)) {
+    throw new Error(`Unsupported image ratio ${selectedRatio} for ${modelConfig.id}`);
+  }
+  if (selectedQuality && !qualityOptions.includes(selectedQuality)) {
+    throw new Error(`Unsupported image quality ${selectedQuality} for ${modelConfig.id}`);
+  }
+  if (resolutionOptions.length && selectedResolution && !resolutionOptions.includes(selectedResolution)) {
+    throw new Error(`Unsupported image resolution ${selectedResolution} for ${modelConfig.id}`);
+  }
+
+  return {
+    ratio: selectedRatio,
+    resolution: resolutionOptions.length ? selectedResolution : undefined,
+    quality: selectedQuality,
+  };
 };
 
 const submitAsyncRun = async ({ model, fields, fetchImpl = fetch }) => {
@@ -146,15 +177,15 @@ const pollTaskDetail = async ({ taskId, fetchImpl = fetch, pollIntervalMs = 2500
   throw new Error(`Wiro task ${taskId} timed out`);
 };
 
-const submitImageGeneration = async ({ model, prompt, aspectRatio }, options = {}) => {
+const submitImageGeneration = async ({ model, prompt, aspectRatio, ratio, resolution, quality }, options = {}) => {
   const selectedModel = model === undefined ? getDefaultGenerationModel('image')?.id : model;
   const modelConfig = getGenerationModelConfig('image', selectedModel);
   if (!modelConfig || !selectedModel) {
     throw new Error('Unsupported image model');
   }
 
-  const size = ensureSupportedSize(modelConfig, aspectRatio);
-  const fields = buildImageFields({ prompt, aspectRatio: size });
+  const selectedFields = ensureSupportedImageOptions(modelConfig, { aspectRatio, ratio, resolution, quality });
+  const fields = buildImageFields({ modelConfig, prompt, ...selectedFields });
   const run = await submitAsyncRun({ model: selectedModel, fields, fetchImpl: options.fetchImpl });
   const task = await pollTaskDetail({ taskId: run.taskid, fetchImpl: options.fetchImpl, pollIntervalMs: options.pollIntervalMs, maxAttempts: options.maxAttempts });
 
@@ -165,29 +196,29 @@ const submitImageGeneration = async ({ model, prompt, aspectRatio }, options = {
   };
 };
 
-const submitLegacyGeneration = async ({ type, prompt, aspectRatio, fetchImpl = fetch }) => {
+const submitLegacyGeneration = async ({ type, prompt, aspectRatio, ratio, resolution, quality, fetchImpl = fetch }) => {
   const response = await fetchImpl(`${getApiBaseUrl()}/generations`, {
     method: 'POST',
     headers: {
       ...getAuthHeaders(),
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ type, prompt, aspectRatio }),
+    body: JSON.stringify({ type, prompt, aspectRatio, ratio, resolution, quality }),
   });
 
   return parseJsonResponse(response, 'Wiro legacy generations');
 };
 
-const submitGeneration = async ({ generationId, type, model, prompt, aspectRatio }, options = {}) => {
+const submitGeneration = async ({ generationId, type, model, prompt, aspectRatio, ratio, resolution, quality }, options = {}) => {
   if (!env.wiroApiKey) {
     return fakeGenerationResult({ generationId, type, prompt, aspectRatio });
   }
 
   if (type === 'image') {
-    return submitImageGeneration({ model, prompt, aspectRatio }, options);
+    return submitImageGeneration({ model, prompt, aspectRatio, ratio, resolution, quality }, options);
   }
 
-  return submitLegacyGeneration({ type, prompt, aspectRatio, fetchImpl: options.fetchImpl });
+  return submitLegacyGeneration({ type, prompt, aspectRatio, ratio, resolution, quality, fetchImpl: options.fetchImpl });
 };
 
 module.exports = {
@@ -196,7 +227,7 @@ module.exports = {
   FAILED_TASK_STATUSES,
   fakeGenerationResult,
   buildImageFields,
-  ensureSupportedSize,
+  ensureSupportedImageOptions,
   submitAsyncRun,
   submitSyncRun,
   extractTask,

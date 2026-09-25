@@ -303,11 +303,10 @@ Redis is used for BullMQ queueing. Without Redis, the app falls back to inline p
 2. Register or sign in.
 3. Confirm the user has credits.
 4. Open image generation and select **GPT Image 2**.
-5. Use a supported ratio:
-   - `auto`
-   - `1:1`
-   - `3:2`
-   - `2:3`
+5. Set GPT Image 2 parameters:
+   - Resolution: `1k`, `2k`, or `4k`
+   - Ratio: `1:1`, `3:2`, `2:3`, `4:3`, `3:4`, `16:9`, or `9:16`
+   - Quality: `low`, `medium`, or `high`
 6. Submit a simple prompt.
 7. Confirm the generation moves through:
    - `queued`
