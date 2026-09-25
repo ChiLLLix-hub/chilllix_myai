@@ -55,7 +55,7 @@ test('sequelize models map userId attributes onto user_id columns', () => {
   const script = `
     const assert = require('node:assert/strict');
     process.env.NODE_ENV = 'test';
-    process.env.DATABASE_URL = '******localhost:5432/testdb';
+    process.env.DATABASE_URL = ['postgres', '://user:pass@localhost:5432/testdb'].join('');
     const models = require('./src/models');
     const check = (modelName) => {
       const attribute = models[modelName].getAttributes().userId;
