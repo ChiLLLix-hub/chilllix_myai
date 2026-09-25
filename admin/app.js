@@ -3,10 +3,43 @@ const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => Array.from(document.querySelectorAll(selector));
 const createElement = (tag, className, text) => { const el = document.createElement(tag); if (className) el.className = className; if (text !== undefined) el.textContent = text; return el; };
 const formatDate = (value) => value ? new Date(value).toLocaleString() : '—';
+const DEFAULT_API_BASE = '';
+const TRUSTED_EXTERNAL_API_ORIGINS = ['https://chilllixmyai-production.up.railway.app'];
+const metaApiBase = document.querySelector('meta[name="myai-api-base"]')?.content?.trim();
+const runtimeApiBase = (window.MYAI_API_BASE_URL || window.CHILLLIX_API_BASE_URL || metaApiBase || '').trim();
+const isAbsoluteHttpUrl = (value) => /^https?:\/\//i.test(value || '');
+const toNormalizedAbsoluteBase = (value) => {
+  if (!isAbsoluteHttpUrl(value)) return '';
+  try {
+    const normalized = new URL(value);
+    return `${normalized.origin}${normalized.pathname}`.replace(/\/+$/, '');
+  } catch (_error) {
+    return '';
+  }
+};
+const normalizeRelativeBase = (value) => String(value || '').trim().replace(/\/+$/, '');
+const normalizedRuntimeBase = isAbsoluteHttpUrl(runtimeApiBase)
+  ? toNormalizedAbsoluteBase(runtimeApiBase)
+  : normalizeRelativeBase(runtimeApiBase);
+const normalizedDefaultBase = toNormalizedAbsoluteBase(DEFAULT_API_BASE);
+const defaultOrigin = normalizedDefaultBase ? new URL(normalizedDefaultBase).origin : '';
+const trustedOrigins = new Set([window.location.origin, defaultOrigin, ...TRUSTED_EXTERNAL_API_ORIGINS].filter(Boolean));
+const runtimeOrigin = isAbsoluteHttpUrl(normalizedRuntimeBase) ? new URL(normalizedRuntimeBase).origin : '';
+const API_BASE = isAbsoluteHttpUrl(normalizedRuntimeBase)
+  ? (trustedOrigins.has(runtimeOrigin) ? normalizedRuntimeBase : normalizedDefaultBase)
+  : (normalizedRuntimeBase || normalizedDefaultBase);
+const joinPath = (base, path) => {
+  if (!base) return path;
+  if (base.endsWith('/') && path.startsWith('/')) return `${base}${path.slice(1)}`;
+  if (!base.endsWith('/') && !path.startsWith('/')) return `${base}/${path}`;
+  return `${base}${path}`;
+};
+const withApiBase = (path) => (/^https?:\/\//i.test(path) ? path : joinPath(API_BASE, path));
+const adminLoginUrl = document.querySelector('meta[name="myai-admin-login-url"]')?.content?.trim() || '';
 const api = async (path, options = {}) => {
   const headers = { ...(options.headers || {}) };
   if (!(options.body instanceof FormData) && !headers['Content-Type']) headers['Content-Type'] = 'application/json';
-  const response = await fetch(path, { credentials: 'include', ...options, headers });
+  const response = await fetch(withApiBase(path), { credentials: 'include', ...options, headers });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) { const error = new Error(payload.error || 'Request failed'); error.status = response.status; throw error; }
   return payload;
@@ -22,7 +55,11 @@ const showUserFeedback = (message = '', tone = 'info') => {
   el.classList.add(tone === 'error' ? 'border-red-400/30' : 'border-cyan-400/30', tone === 'error' ? 'bg-red-500/10' : 'bg-cyan-500/10', tone === 'error' ? 'text-red-200' : 'text-cyan-100');
 };
 const setDrawerOpen = (open) => { state.drawerOpen = open; $('#drawer').classList.toggle('drawer-open', open || window.innerWidth >= 1024); $('#drawer-overlay').classList.toggle('hidden', !open || window.innerWidth >= 1024); };
-const showAuth = () => { window.location.href = '/admin-login'; };
+const showAuth = (forceRedirect = false) => {
+  $('#auth-screen')?.classList.remove('hidden');
+  $('#app-shell')?.classList.add('hidden');
+  if (forceRedirect && adminLoginUrl) window.location.href = adminLoginUrl;
+};
 const showApp = () => { $('#auth-screen').classList.add('hidden'); $('#app-shell').classList.remove('hidden'); $('#session-email').textContent = state.user?.email || ''; };
 const setSection = (section) => { state.activeSection = section; $$('.content-section').forEach((node) => node.classList.add('hidden')); $(`#${section}`)?.classList.remove('hidden'); $$('.drawer-btn').forEach((btn) => btn.classList.toggle('active', btn.dataset.section === section)); if (window.innerWidth < 1024) setDrawerOpen(false); };
 const renderList = (selector, items, render, empty) => { const host = $(selector); host.innerHTML = ''; if (!items?.length) return host.appendChild(createElement('div', 'activity-card text-sm text-slate-400', empty)); items.forEach((item) => host.appendChild(render(item))); };
@@ -104,7 +141,7 @@ const loadSession = async () => {
   } catch (_error) {
     try { await api('/api/auth/logout', { method: 'POST' }); } catch {} // ignore
     state.user = null;
-    showAuth();
+    showAuth(true);
   }
 };
 const loadOverview = async () => { state.overview = await api('/api/admin/overview'); renderOverview(); };
@@ -119,7 +156,7 @@ $('#login-form').addEventListener('submit', async (event) => {
     await loadSession();
   } catch (error) { showAuthFeedback(error.message); }
 });
-$('#logout-btn').addEventListener('click', async () => { try { await api('/api/auth/logout', { method: 'POST' }); } catch {} state.user = null; showAuth(); });
+$('#logout-btn').addEventListener('click', async () => { try { await api('/api/auth/logout', { method: 'POST' }); } catch {} state.user = null; showAuth(true); });
 $('#drawer-open').addEventListener('click', () => setDrawerOpen(true));
 $('#drawer-close').addEventListener('click', () => setDrawerOpen(false));
 $('#drawer-overlay').addEventListener('click', () => setDrawerOpen(false));
