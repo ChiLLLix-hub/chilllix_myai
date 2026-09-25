@@ -88,6 +88,42 @@ npm start
     - `Database connection verified`
     - `Server listening on port ...`
 
+## cPanel Node.js App Setup (Express Routes Enabled)
+
+Use this mode when you want `/api`, `/admin-login`, `/admin`, and `/admin-assets/*` to be served by this repository's Express server on cPanel.
+
+1. In cPanel, open **Setup Node.js App** and create an app with:
+   - **Node.js version**: `20+`
+   - **Application mode**: `production`
+   - **Application root**: repository root (where `package.json` exists)
+   - **Startup file**: `src/server.js`
+2. Set environment variables in cPanel app settings:
+   - `NODE_ENV=production`
+   - `PORT=<cpanel-assigned-port>`
+   - `FRONTEND_ORIGIN=https://agromar.com.my` (or your exact frontend origin)
+   - `JWT_SECRET=<strong-random-secret>`
+   - `DATABASE_URL=<postgres-connection-string>`
+   - `REDIS_URL=<redis-connection-string>` (if Redis is enabled)
+   - plus any optional values from `.env.example` you use (Wiro/S3/etc.)
+3. From cPanel terminal (inside app root), run:
+
+   ```bash
+   npm install
+   npm run db:migrate
+   ```
+
+4. Restart the Node.js app from cPanel.
+5. Map your domain/path to the Node.js app URL (do not serve `admin/*.html` directly from `public_html` as static files).
+6. Open admin via Express routes:
+   - `/admin-login`
+   - `/admin`
+
+### cPanel Node.js Troubleshooting
+
+- If DevTools shows `GET https://<domain>/app.js` -> `404` while opening `/myai-main/admin/`, your page is being served as static HTML from the wrong location/path mapping.
+- In Express mode, admin assets should load from `/admin-assets/app.js` and `/admin-assets/styles.css`.
+- If login POST is blocked with `CSRF protection blocked the request`, verify `FRONTEND_ORIGIN` exactly matches browser origin (`https`, host, and subdomain must match).
+
 ## cPanel Frontend -> Railway Backend Setup
 
 1. Deploy `/public` to cPanel `public_html`.
