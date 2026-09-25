@@ -3,6 +3,7 @@ process.env.WIRO_API_KEY = 'test-wiro-key';
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { execFileSync } = require('node:child_process');
+const path = require('node:path');
 const { cleanString, cleanStringArray, cleanJson } = require('../src/utils/sanitize');
 const { resolveGenerationCosts, calculateExpiryDate, resolveRequestedModel, persistCompletedGeneration, refundFailedGeneration } = require('../src/services/generation.service');
 const { buildImageFields, ensureSupportedSize, extractOutputUrl, pollTaskDetail, submitAsyncRun, submitImageGeneration } = require('../src/services/wiro.service');
@@ -52,6 +53,7 @@ test('resolveRequestedModel only allows configured image models', () => {
 });
 
 test('sequelize models map userId attributes onto user_id columns', () => {
+  const repoRoot = path.resolve(__dirname, '..');
   const script = `
     const assert = require('node:assert/strict');
     process.env.NODE_ENV = 'test';
@@ -69,7 +71,7 @@ test('sequelize models map userId attributes onto user_id columns', () => {
   `;
 
   execFileSync(process.execPath, ['-e', script], {
-    cwd: '/home/runner/work/chilllix_myai/chilllix_myai',
+    cwd: repoRoot,
     stdio: 'pipe',
   });
 });
