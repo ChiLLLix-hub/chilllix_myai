@@ -186,3 +186,154 @@ You can also set `window.MYAI_API_BASE_URL` before loading `/public/app.js`; thi
 3. Direct-subdomain mode: confirm requests go to your configured API base (for example `https://api.agromar.com.my/api/auth/register`) and return backend responses.
 4. Confirm signup and login both succeed.
 5. Confirm Socket.IO connects (no repeated websocket/transport errors).
+
+## GPT Image 2 Production Rollout (cPanel Frontend + Railway Backend)
+
+Use this checklist when the frontend is hosted on cPanel and the backend runs on Railway.
+
+### 1. Prepare Railway services
+
+Create or attach these Railway services to the backend project:
+
+- **Backend app** from this repository
+- **PostgreSQL**
+- **Redis**
+- **S3-compatible bucket** provider details for asset cleanup/storage features
+
+Set Railway variables:
+
+- `NODE_ENV=production`
+- `PORT` supplied by Railway service settings (or leave Railway to inject its runtime port)
+- `FRONTEND_ORIGIN=https://your-frontend-domain`
+- `JWT_SECRET=<strong-random-secret>`
+- `DATABASE_URL=<railway-postgres-url>`
+- `REDIS_URL=<railway-redis-url>`
+- `WIRO_API_BASE_URL=https://api.wiro.ai/v1`
+- `WIRO_API_KEY=<your-wiro-api-key>`
+- `S3_ENDPOINT=<your-bucket-endpoint>`
+- `S3_REGION=<your-bucket-region-or-auto>`
+- `S3_BUCKET=<your-bucket-name>`
+- `S3_ACCESS_KEY_ID=<your-bucket-access-key>`
+- `S3_SECRET_ACCESS_KEY=<your-bucket-secret>`
+- `ASSET_BASE_URL=<public-cdn-or-bucket-base-url>`
+- `AUTO_CLEANUP_ENABLED=true`
+- `ASSET_RETENTION_DAYS=7`
+- `CREDIT_COST_IMAGE=10`
+- `CREDIT_COST_VIDEO=35`
+- `CREDIT_COST_CHAT=3`
+- `STARTER_CREDITS=100`
+
+Then verify:
+
+- `https://<your-railway-domain>/health` returns `status: ok`
+- Railway logs show the service booted without config errors
+
+### 2. Run the production migration
+
+Before testing generation, run:
+
+```bash
+export DATABASE_URL="<railway-postgres-url>"
+npm install
+npm run db:migrate
+```
+
+This creates the required production tables for users, credits, prompts, and generations.
+
+### 3. Point cPanel frontend to Railway
+
+Upload `/public` to cPanel static hosting, then configure the frontend API base in one of these ways:
+
+- **Preferred for static cPanel hosting**: set the meta tag in `/public/index.html`
+- **Alternate**: set `window.MYAI_API_BASE_URL` before loading `/public/app.js`
+
+Example:
+
+```html
+<meta name="myai-api-base" content="https://api.yourdomain.com" />
+```
+
+or
+
+```html
+<meta name="myai-api-base" content="https://api.yourdomain.com/api" />
+```
+
+The frontend origin must exactly match Railway `FRONTEND_ORIGIN`, including protocol and subdomain.
+
+### 4. Confirm GPT Image 2 wiring
+
+GPT Image 2 is already available in this repository:
+
+- Backend model registry: `/src/services/model-catalog.service.js`
+- Frontend model picker: `/public/app.js`
+- Generation request flow: `/src/services/wiro.service.js`
+
+This app submits image jobs through **Wiro**, not directly to OpenAI.
+
+### 5. Choose default vs selectable model
+
+- If you want GPT Image 2 as a selectable option only, no code change is required.
+- If you want GPT Image 2 as the default image model, change `DEFAULT_MODELS_BY_TYPE.image` in `/src/services/model-catalog.service.js` from `openai/gpt-image-2-5-flare` to `openai/gpt-image-2`.
+
+### 6. Verify provider-side access
+
+Before production testing, confirm your Wiro account can run:
+
+```text
+openai/gpt-image-2
+```
+
+If Wiro access is missing or restricted, the model can appear in the UI but fail when a generation request is submitted.
+
+### 7. Verify storage, queueing, and realtime
+
+For a production-ready setup, confirm:
+
+- Railway backend can connect to PostgreSQL
+- Railway backend can connect to Redis
+- Bucket credentials are valid if you rely on asset cleanup/storage
+- `ASSET_BASE_URL` points to the URL users should open for stored/generated files
+
+Redis is used for BullMQ queueing. Without Redis, the app falls back to inline processing, which is not the recommended production mode.
+
+### 8. Test the full GPT Image 2 flow
+
+1. Open the cPanel frontend.
+2. Register or sign in.
+3. Confirm the user has credits.
+4. Open image generation and select **GPT Image 2**.
+5. Use a supported ratio:
+   - `auto`
+   - `1:1`
+   - `3:2`
+   - `2:3`
+6. Submit a simple prompt.
+7. Confirm the generation moves through:
+   - `queued`
+   - `processing`
+   - `completed`
+8. Confirm an output URL is returned and loads successfully.
+
+### 9. Common failure points
+
+If GPT Image 2 does not work, check these first:
+
+- wrong frontend API base in cPanel
+- `FRONTEND_ORIGIN` mismatch in Railway
+- missing or invalid `WIRO_API_KEY`
+- migration not run against Railway PostgreSQL
+- Redis missing or unreachable
+- Wiro account does not have access to `openai/gpt-image-2`
+- bucket variables missing or incorrect when storage features are expected
+
+### 10. Deployment checklist files
+
+Use these files during rollout:
+
+- `/README.md`
+- `/public/index.html`
+- `/public/app.js`
+- `/src/services/model-catalog.service.js`
+- `/src/services/wiro.service.js`
+- `/.env.example`
