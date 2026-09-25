@@ -2,6 +2,7 @@ process.env.WIRO_API_KEY = 'test-wiro-key';
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const { execFileSync } = require('node:child_process');
 const { cleanString, cleanStringArray, cleanJson } = require('../src/utils/sanitize');
 const { resolveGenerationCosts, calculateExpiryDate, resolveRequestedModel, persistCompletedGeneration, refundFailedGeneration } = require('../src/services/generation.service');
 const { buildImageFields, ensureSupportedSize, extractOutputUrl, pollTaskDetail, submitAsyncRun, submitImageGeneration } = require('../src/services/wiro.service');
@@ -48,6 +49,29 @@ test('resolveRequestedModel only allows configured image models', () => {
   assert.equal(resolveRequestedModel({ type: 'image', model: undefined }), 'openai/gpt-image-2-5-flare');
   assert.equal(resolveRequestedModel({ type: 'video', model: undefined }), null);
   assert.throws(() => resolveRequestedModel({ type: 'image', model: 'bad/model' }), /Unsupported image model/);
+});
+
+test('sequelize models map userId attributes onto user_id columns', () => {
+  const script = `
+    const assert = require('node:assert/strict');
+    process.env.NODE_ENV = 'test';
+    process.env.DATABASE_URL = '******localhost:5432/testdb';
+    const models = require('./src/models');
+    const check = (modelName) => {
+      const attribute = models[modelName].getAttributes().userId;
+      assert.ok(attribute, modelName + ' is missing userId');
+      assert.equal(attribute.field, 'user_id');
+    };
+    check('SavedPrompt');
+    check('UserLog');
+    check('Generation');
+    check('Transaction');
+  `;
+
+  execFileSync(process.execPath, ['-e', script], {
+    cwd: '/home/runner/work/chilllix_myai/chilllix_myai',
+    stdio: 'pipe',
+  });
 });
 
 test('buildImageFields maps prompt and requested size', () => {
