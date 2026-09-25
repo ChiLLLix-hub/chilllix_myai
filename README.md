@@ -93,7 +93,7 @@ npm start
 Use this mode when you want `/api`, `/admin-login`, `/admin`, and `/admin-assets/*` to be served by this repository's Express server on cPanel.
 
 1. In cPanel, open **Setup Node.js App** and create an app with:
-   - **Node.js version**: `20+`
+   - **Node.js version**: `20.x` (minimum supported by this project: `>=20`)
    - **Application mode**: `production`
    - **Application root**: repository root (where `package.json` exists)
    - **Startup file**: `src/server.js`
