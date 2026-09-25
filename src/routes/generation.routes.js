@@ -7,10 +7,9 @@ const { generationRateLimiter } = require('../middleware/rate-limit.middleware')
 const { auditAction } = require('../middleware/audit.middleware');
 const { cleanString } = require('../utils/sanitize');
 const { asyncHandler } = require('../utils/async-handler');
+const { getDefaultGenerationModel, getGenerationModelConfig } = require('../services/model-catalog.service');
 
 const router = express.Router();
-const IMAGE_RATIOS = new Set(['auto', '1:1', '3:2', '2:3', '4:3', '3:4', '16:9', '9:16']);
-const IMAGE_RESOLUTIONS = new Set(['1k', '2k', '4k']);
 const IMAGE_QUALITIES = new Set(['low', 'medium', 'high']);
 
 const generationBodySchema = z.object({
@@ -32,8 +31,22 @@ const generationBodySchema = z.object({
 }).superRefine((body, ctx) => {
   if (body.type !== 'image') return;
 
+  if (body.ratio && body.aspectRatio && body.ratio !== body.aspectRatio) {
+    ctx.addIssue({
+      code: 'custom',
+      message: 'ratio and aspectRatio must match when both are provided',
+      path: ['ratio'],
+    });
+    return;
+  }
+
+  const selectedModelId = body.model || getDefaultGenerationModel('image')?.id;
+  const modelConfig = selectedModelId ? getGenerationModelConfig('image', selectedModelId) : null;
+  if (!modelConfig) return;
+
   const normalizedRatio = body.ratio || body.aspectRatio;
-  if (normalizedRatio && !IMAGE_RATIOS.has(normalizedRatio)) {
+  const ratioOptions = modelConfig.fields?.ratioOptions || [];
+  if (normalizedRatio && normalizedRatio !== 'auto' && ratioOptions.length && !ratioOptions.includes(normalizedRatio)) {
     const ratioPath = body.ratio ? 'ratio' : 'aspectRatio';
     ctx.addIssue({
       code: 'custom',
@@ -41,13 +54,16 @@ const generationBodySchema = z.object({
       path: [ratioPath],
     });
   }
-  if (body.resolution && !IMAGE_RESOLUTIONS.has(body.resolution)) {
+
+  const resolutionOptions = modelConfig.fields?.resolutionOptions || [];
+  if (body.resolution && (!resolutionOptions.length || !resolutionOptions.includes(body.resolution))) {
     ctx.addIssue({
       code: 'custom',
       message: 'Unsupported image resolution',
       path: ['resolution'],
     });
   }
+
   if (body.quality && !IMAGE_QUALITIES.has(body.quality)) {
     ctx.addIssue({
       code: 'custom',
