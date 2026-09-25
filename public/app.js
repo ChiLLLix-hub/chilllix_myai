@@ -661,16 +661,20 @@ $('#generation-form').addEventListener('submit', async (event) => {
   resetPreview();
   updatePreview({ status: 'queued', progress: 12 });
   try {
+    const type = $('#generation-type').value;
+    const payload = {
+      prompt: $('#prompt').value,
+      type,
+      model: $('#generation-model').value,
+    };
+    if (type === 'image') {
+      payload.ratio = $('#ratio').value;
+      payload.resolution = $('#resolution').value || undefined;
+      payload.quality = $('#quality').value;
+    }
     await api('/api/generate', {
       method: 'POST',
-      body: JSON.stringify({
-        prompt: $('#prompt').value,
-        type: $('#generation-type').value,
-        model: $('#generation-model').value,
-        ratio: $('#ratio').value,
-        resolution: $('#resolution').value || undefined,
-        quality: $('#quality').value,
-      }),
+      body: JSON.stringify(payload),
     });
     await Promise.allSettled([loadProfile(), loadDashboard(), loadGenerations()]);
     updateCreditWarning('');

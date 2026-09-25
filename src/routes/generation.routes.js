@@ -7,7 +7,7 @@ const { generationRateLimiter } = require('../middleware/rate-limit.middleware')
 const { auditAction } = require('../middleware/audit.middleware');
 const { cleanString } = require('../utils/sanitize');
 const { asyncHandler } = require('../utils/async-handler');
-const { getDefaultGenerationModel, getGenerationModelConfig } = require('../services/model-catalog.service');
+const { getGenerationModelConfig } = require('../services/model-catalog.service');
 
 const router = express.Router();
 const IMAGE_QUALITIES = new Set(['low', 'medium', 'high']);
@@ -40,16 +40,15 @@ const generationBodySchema = z.object({
     return;
   }
 
-  const selectedModelId = body.model || getDefaultGenerationModel('image')?.id;
-  const modelConfig = selectedModelId ? getGenerationModelConfig('image', selectedModelId) : null;
+  if (!body.model) return;
+
+  const modelConfig = getGenerationModelConfig('image', body.model);
   if (!modelConfig) {
-    if (body.model) {
-      ctx.addIssue({
-        code: 'custom',
-        message: 'Unsupported image model',
-        path: ['model'],
-      });
-    }
+    ctx.addIssue({
+      code: 'custom',
+      message: 'Unsupported image model',
+      path: ['model'],
+    });
     return;
   }
 
