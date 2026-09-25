@@ -22,6 +22,7 @@ if (sequelize) {
 
   models.SavedPrompt = sequelize.define('SavedPrompt', {
     id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
+    userId: { type: DataTypes.UUID, allowNull: false, field: 'user_id' },
     title: { type: DataTypes.STRING, allowNull: false },
     promptText: { type: DataTypes.TEXT, allowNull: false, field: 'prompt_text' },
     category: { type: DataTypes.ENUM('image', 'video', 'chat'), allowNull: false },
@@ -30,6 +31,7 @@ if (sequelize) {
 
   models.UserLog = sequelize.define('UserLog', {
     id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
+    userId: { type: DataTypes.UUID, field: 'user_id' },
     action: { type: DataTypes.STRING, allowNull: false },
     details: { type: DataTypes.JSONB, allowNull: false, defaultValue: {} },
     ipAddress: { type: DataTypes.STRING, field: 'ip_address' },
@@ -38,6 +40,7 @@ if (sequelize) {
 
   models.Generation = sequelize.define('Generation', {
     id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
+    userId: { type: DataTypes.UUID, allowNull: false, field: 'user_id' },
     type: { type: DataTypes.ENUM('image', 'video', 'chat'), allowNull: false },
     prompt: { type: DataTypes.TEXT, allowNull: false },
     outputUrl: { type: DataTypes.TEXT, field: 'output_url' },
@@ -51,6 +54,7 @@ if (sequelize) {
 
   models.Transaction = sequelize.define('Transaction', {
     id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
+    userId: { type: DataTypes.UUID, allowNull: false, field: 'user_id' },
     amount: { type: DataTypes.DECIMAL(10, 2), allowNull: false },
     currency: { type: DataTypes.STRING(8), allowNull: false, defaultValue: 'USD' },
     creditsAdded: { type: DataTypes.INTEGER, allowNull: false, field: 'credits_added' },
@@ -64,14 +68,16 @@ if (sequelize) {
     value: { type: DataTypes.JSONB, allowNull: false },
   }, { tableName: 'system_settings', underscored: true, updatedAt: 'updated_at', createdAt: false });
 
-  models.User.hasMany(models.SavedPrompt, { foreignKey: 'user_id' });
-  models.SavedPrompt.belongsTo(models.User, { foreignKey: 'user_id' });
-  models.User.hasMany(models.UserLog, { foreignKey: 'user_id' });
-  models.UserLog.belongsTo(models.User, { foreignKey: 'user_id' });
-  models.User.hasMany(models.Generation, { foreignKey: 'user_id' });
-  models.Generation.belongsTo(models.User, { foreignKey: 'user_id' });
-  models.User.hasMany(models.Transaction, { foreignKey: 'user_id' });
-  models.Transaction.belongsTo(models.User, { foreignKey: 'user_id' });
+  const userForeignKey = () => ({ name: 'userId', field: 'user_id' });
+
+  models.User.hasMany(models.SavedPrompt, { foreignKey: userForeignKey() });
+  models.SavedPrompt.belongsTo(models.User, { foreignKey: userForeignKey() });
+  models.User.hasMany(models.UserLog, { foreignKey: userForeignKey() });
+  models.UserLog.belongsTo(models.User, { foreignKey: userForeignKey() });
+  models.User.hasMany(models.Generation, { foreignKey: userForeignKey() });
+  models.Generation.belongsTo(models.User, { foreignKey: userForeignKey() });
+  models.User.hasMany(models.Transaction, { foreignKey: userForeignKey() });
+  models.Transaction.belongsTo(models.User, { foreignKey: userForeignKey() });
 }
 
 module.exports = models;
