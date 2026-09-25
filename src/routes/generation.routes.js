@@ -34,10 +34,11 @@ const generationBodySchema = z.object({
 
   const normalizedRatio = body.ratio || body.aspectRatio;
   if (normalizedRatio && !IMAGE_RATIOS.has(normalizedRatio)) {
+    const ratioPath = body.ratio ? 'ratio' : 'aspectRatio';
     ctx.addIssue({
       code: 'custom',
       message: 'Unsupported image ratio',
-      path: ['ratio'],
+      path: [ratioPath],
     });
   }
   if (body.resolution && !IMAGE_RESOLUTIONS.has(body.resolution)) {

@@ -487,7 +487,11 @@ const populateCreator = (model) => {
   const resolutionOptions = model.resolutionOptions || [];
   const ratioOptions = model.ratioOptions || ['1:1'];
   const qualityOptions = model.qualityOptions || ['medium'];
-  populateSelect(resolutionSelect, resolutionOptions.length ? resolutionOptions : ['']);
+  if (resolutionOptions.length) {
+    populateSelect(resolutionSelect, resolutionOptions, model.defaultResolution || resolutionOptions[0]);
+  } else {
+    resolutionSelect.innerHTML = '';
+  }
   populateSelect(ratioSelect, ratioOptions, model.defaultRatio || (typeof ratioOptions[0] === 'string' ? ratioOptions[0] : ratioOptions[0]?.value));
   populateSelect(qualitySelect, qualityOptions, model.defaultQuality || qualityOptions[0]);
   resolutionSelect.disabled = !resolutionOptions.length;
