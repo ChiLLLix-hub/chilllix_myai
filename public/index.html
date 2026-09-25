@@ -180,11 +180,13 @@
                     </label>
                     <label class="block space-y-2">
                       <span class="text-sm text-slate-300">Ratio</span>
-                      <select id="ratio" class="input w-full"><option value="1:1">1:1</option></select>
+                      <select id="ratio" class="input w-full" aria-describedby="ratio-help"><option value="1:1">1:1</option></select>
+                      <p id="ratio-help" class="text-xs text-slate-500">Ratio options depend on the selected model.</p>
                     </label>
                     <label class="block space-y-2">
                       <span class="text-sm text-slate-300">Quality</span>
-                      <select id="quality" class="input w-full"><option value="low">low</option></select>
+                      <select id="quality" class="input w-full" aria-describedby="quality-help"><option value="low">low</option></select>
+                      <p id="quality-help" class="text-xs text-slate-500">Quality options depend on the selected model.</p>
                     </label>
                     <div class="rounded-3xl border border-white/10 bg-white/5 p-4">
                       <p class="text-sm font-medium text-slate-200">Current model</p>

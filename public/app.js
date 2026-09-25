@@ -499,6 +499,8 @@ const populateCreator = (model) => {
   $('#resolution-help').textContent = resolutionOptions.length
     ? 'Resolution options depend on the selected model.'
     : 'This model uses ratio and quality only, so resolution is not required.';
+  $('#ratio-help').textContent = 'Ratio options depend on the selected model.';
+  $('#quality-help').textContent = 'Quality options depend on the selected model.';
   const requiredCredits = state.creditCosts[model.type] || 0;
   updateCreditWarning(state.creditsBalance < requiredCredits ? `This ${model.type} generation needs ${requiredCredits} credits.` : '');
   $('#catalog-view').classList.add('hidden');
@@ -666,7 +668,6 @@ $('#generation-form').addEventListener('submit', async (event) => {
         type: $('#generation-type').value,
         model: $('#generation-model').value,
         ratio: $('#ratio').value,
-        aspectRatio: $('#ratio').value,
         resolution: $('#resolution').value || undefined,
         quality: $('#quality').value,
       }),
