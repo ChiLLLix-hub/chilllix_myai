@@ -64,7 +64,8 @@ const generationBodySchema = z.object({
     });
   }
 
-  if (body.quality && !IMAGE_QUALITIES.has(body.quality)) {
+  const qualityOptions = modelConfig.fields?.qualityOptions || Array.from(IMAGE_QUALITIES);
+  if (body.quality && !qualityOptions.includes(body.quality)) {
     ctx.addIssue({
       code: 'custom',
       message: 'Unsupported image quality',

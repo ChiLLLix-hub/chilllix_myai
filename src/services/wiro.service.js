@@ -15,7 +15,7 @@ const FAILED_TASK_STATUSES = new Set(['task_cancel', 'task_fail', 'task_error'])
 
 const sleep = (delayMs) => new Promise((resolve) => setTimeout(resolve, delayMs));
 
-const fakeGenerationResult = async ({ generationId, type, prompt }) => {
+const fakeGenerationResult = async ({ generationId, type, prompt, ratio, resolution, quality }) => {
   await sleep(50);
   if (type === 'chat') {
     return {
@@ -211,7 +211,7 @@ const submitLegacyGeneration = async ({ type, prompt, aspectRatio, ratio, resolu
 
 const submitGeneration = async ({ generationId, type, model, prompt, aspectRatio, ratio, resolution, quality }, options = {}) => {
   if (!env.wiroApiKey) {
-    return fakeGenerationResult({ generationId, type, prompt, aspectRatio });
+    return fakeGenerationResult({ generationId, type, prompt, aspectRatio, ratio, resolution, quality });
   }
 
   if (type === 'image') {
