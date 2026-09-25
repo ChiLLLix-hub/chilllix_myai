@@ -3,10 +3,14 @@ const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => Array.from(document.querySelectorAll(selector));
 const createElement = (tag, className, text) => { const el = document.createElement(tag); if (className) el.className = className; if (text !== undefined) el.textContent = text; return el; };
 const formatDate = (value) => value ? new Date(value).toLocaleString() : '—';
+const metaApiBase = document.querySelector('meta[name="myai-api-base"]')?.content?.trim();
+const runtimeApiBase = (window.MYAI_API_BASE_URL || window.CHILLLIX_API_BASE_URL || metaApiBase || '').trim();
+const API_BASE = (runtimeApiBase || 'https://chilllixmyai-production.up.railway.app').replace(/\/+$/, '');
+const withApiBase = (path) => `${API_BASE}${path.startsWith('/') ? path : `/${path}`}`;
 const api = async (path, options = {}) => {
   const headers = { ...(options.headers || {}) };
   if (!(options.body instanceof FormData) && !headers['Content-Type']) headers['Content-Type'] = 'application/json';
-  const response = await fetch(path, { credentials: 'include', ...options, headers });
+  const response = await fetch(withApiBase(path), { credentials: 'include', ...options, headers });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) { const error = new Error(payload.error || 'Request failed'); error.status = response.status; throw error; }
   return payload;
@@ -22,7 +26,7 @@ const showUserFeedback = (message = '', tone = 'info') => {
   el.classList.add(tone === 'error' ? 'border-red-400/30' : 'border-cyan-400/30', tone === 'error' ? 'bg-red-500/10' : 'bg-cyan-500/10', tone === 'error' ? 'text-red-200' : 'text-cyan-100');
 };
 const setDrawerOpen = (open) => { state.drawerOpen = open; $('#drawer').classList.toggle('drawer-open', open || window.innerWidth >= 1024); $('#drawer-overlay').classList.toggle('hidden', !open || window.innerWidth >= 1024); };
-const showAuth = () => { window.location.href = '/admin-login'; };
+const showAuth = () => { $('#auth-screen')?.classList.remove('hidden'); $('#app-shell')?.classList.add('hidden'); };
 const showApp = () => { $('#auth-screen').classList.add('hidden'); $('#app-shell').classList.remove('hidden'); $('#session-email').textContent = state.user?.email || ''; };
 const setSection = (section) => { state.activeSection = section; $$('.content-section').forEach((node) => node.classList.add('hidden')); $(`#${section}`)?.classList.remove('hidden'); $$('.drawer-btn').forEach((btn) => btn.classList.toggle('active', btn.dataset.section === section)); if (window.innerWidth < 1024) setDrawerOpen(false); };
 const renderList = (selector, items, render, empty) => { const host = $(selector); host.innerHTML = ''; if (!items?.length) return host.appendChild(createElement('div', 'activity-card text-sm text-slate-400', empty)); items.forEach((item) => host.appendChild(render(item))); };
