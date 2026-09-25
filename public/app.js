@@ -496,6 +496,9 @@ const populateCreator = (model) => {
   populateSelect(qualitySelect, qualityOptions, model.defaultQuality || qualityOptions[0]);
   resolutionSelect.disabled = !resolutionOptions.length;
   if (!resolutionOptions.length) resolutionSelect.value = '';
+  $('#resolution-help').textContent = resolutionOptions.length
+    ? 'Resolution options depend on the selected model.'
+    : 'This model uses ratio and quality only, so resolution is not required.';
   const requiredCredits = state.creditCosts[model.type] || 0;
   updateCreditWarning(state.creditsBalance < requiredCredits ? `This ${model.type} generation needs ${requiredCredits} credits.` : '');
   $('#catalog-view').classList.add('hidden');

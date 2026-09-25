@@ -42,7 +42,16 @@ const generationBodySchema = z.object({
 
   const selectedModelId = body.model || getDefaultGenerationModel('image')?.id;
   const modelConfig = selectedModelId ? getGenerationModelConfig('image', selectedModelId) : null;
-  if (!modelConfig) return;
+  if (!modelConfig) {
+    if (body.model) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Unsupported image model',
+        path: ['model'],
+      });
+    }
+    return;
+  }
 
   const normalizedRatio = body.ratio || body.aspectRatio;
   const ratioOptions = modelConfig.fields?.ratioOptions || [];
