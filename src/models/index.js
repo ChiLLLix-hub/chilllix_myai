@@ -68,16 +68,16 @@ if (sequelize) {
     value: { type: DataTypes.JSONB, allowNull: false },
   }, { tableName: 'system_settings', underscored: true, updatedAt: 'updated_at', createdAt: false });
 
-  const userForeignKey = Object.freeze({ name: 'userId', field: 'user_id' });
+  const userForeignKey = () => ({ name: 'userId', field: 'user_id' });
 
-  models.User.hasMany(models.SavedPrompt, { foreignKey: userForeignKey });
-  models.SavedPrompt.belongsTo(models.User, { foreignKey: userForeignKey });
-  models.User.hasMany(models.UserLog, { foreignKey: userForeignKey });
-  models.UserLog.belongsTo(models.User, { foreignKey: userForeignKey });
-  models.User.hasMany(models.Generation, { foreignKey: userForeignKey });
-  models.Generation.belongsTo(models.User, { foreignKey: userForeignKey });
-  models.User.hasMany(models.Transaction, { foreignKey: userForeignKey });
-  models.Transaction.belongsTo(models.User, { foreignKey: userForeignKey });
+  models.User.hasMany(models.SavedPrompt, { foreignKey: userForeignKey() });
+  models.SavedPrompt.belongsTo(models.User, { foreignKey: userForeignKey() });
+  models.User.hasMany(models.UserLog, { foreignKey: userForeignKey() });
+  models.UserLog.belongsTo(models.User, { foreignKey: userForeignKey() });
+  models.User.hasMany(models.Generation, { foreignKey: userForeignKey() });
+  models.Generation.belongsTo(models.User, { foreignKey: userForeignKey() });
+  models.User.hasMany(models.Transaction, { foreignKey: userForeignKey() });
+  models.Transaction.belongsTo(models.User, { foreignKey: userForeignKey() });
 }
 
 module.exports = models;
